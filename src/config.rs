@@ -1,16 +1,30 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize)]
+pub struct ConfigFile {
+    pub host: String,
+    #[serde(default = "default_endpoint_id")]
+    pub endpoint_id: u64,
+    pub stacks: HashMap<String, StackEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StackEntry {
+    pub compose_file: String,
+    pub env_file: Option<String>,
+    pub endpoint_id: Option<u64>,
+}
+
+#[derive(Debug)]
 pub struct Config {
     pub name: String,
     pub compose_file: String,
     pub env_file: Option<String>,
     pub host: String,
-    #[serde(default = "default_endpoint_id")]
     pub endpoint_id: u64,
-    #[serde(skip)]
     pub base_dir: PathBuf,
 }
 
@@ -24,19 +38,45 @@ fn default_endpoint_id() -> u64 {
     2
 }
 
-impl Config {
+impl ConfigFile {
     pub fn load(path: &Path) -> Result<Self> {
-        let path = path.canonicalize().context(format!(
-            "Config file not found: {}",
-            path.display()
-        ))?;
-        let content =
-            std::fs::read_to_string(&path).context(format!("Failed to read config file: {}", path.display()))?;
-        let mut config: Config = toml::from_str(&content).context("Failed to parse config file")?;
-        config.base_dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
+        let path = path
+            .canonicalize()
+            .context(format!("Config file not found: {}", path.display()))?;
+        let content = std::fs::read_to_string(&path)
+            .context(format!("Failed to read config file: {}", path.display()))?;
+        let config: ConfigFile = toml::from_str(&content).context("Failed to parse config file")?;
         Ok(config)
     }
 
+    pub fn resolve(&self, stack_name: &str, base_dir: &Path) -> Result<Config> {
+        let entry = self
+            .stacks
+            .get(stack_name)
+            .context(format!("Stack '{}' not found in config", stack_name))?;
+        Ok(Config {
+            name: stack_name.to_string(),
+            compose_file: entry.compose_file.clone(),
+            env_file: entry.env_file.clone(),
+            host: self.host.clone(),
+            endpoint_id: entry.endpoint_id.unwrap_or(self.endpoint_id),
+            base_dir: base_dir.to_path_buf(),
+        })
+    }
+
+    pub fn stack_names(&self) -> Vec<&str> {
+        self.stacks.keys().map(|s| s.as_str()).collect()
+    }
+
+    pub fn base_dir(path: &Path) -> Result<PathBuf> {
+        let path = path
+            .canonicalize()
+            .context(format!("Config file not found: {}", path.display()))?;
+        Ok(path.parent().unwrap_or(Path::new(".")).to_path_buf())
+    }
+}
+
+impl Config {
     pub fn compose_path(&self) -> PathBuf {
         self.base_dir.join(&self.compose_file)
     }
@@ -47,8 +87,8 @@ impl Config {
 }
 
 pub fn parse_env_file(path: &Path) -> Result<Vec<EnvVar>> {
-    let content =
-        std::fs::read_to_string(path).context(format!("Failed to read env file: {}", path.display()))?;
+    let content = std::fs::read_to_string(path)
+        .context(format!("Failed to read env file: {}", path.display()))?;
     Ok(parse_env_str(&content))
 }
 
@@ -122,8 +162,14 @@ mod tests {
         let path = dir.join(".env.test");
 
         let vars = vec![
-            EnvVar { name: "FOO".to_string(), value: "bar".to_string() },
-            EnvVar { name: "BAZ".to_string(), value: "qux=123".to_string() },
+            EnvVar {
+                name: "FOO".to_string(),
+                value: "bar".to_string(),
+            },
+            EnvVar {
+                name: "BAZ".to_string(),
+                value: "qux=123".to_string(),
+            },
         ];
         write_env_file(&path, &vars).unwrap();
         let parsed = parse_env_file(&path).unwrap();
@@ -138,52 +184,96 @@ mod tests {
     }
 
     #[test]
-    fn test_config_resolved_paths() {
+    fn test_config_file_load_and_resolve() {
         let dir = std::env::temp_dir().join("stack-sync-config-test");
         std::fs::create_dir_all(&dir).unwrap();
         let config_path = dir.join("stack-sync.toml");
         std::fs::write(
             &config_path,
             r#"
-name = "test"
+host = "https://example.com"
+
+[stacks.my-stack]
 compose_file = "compose.yaml"
 env_file = ".env"
-host = "https://example.com"
 "#,
         )
         .unwrap();
 
-        let config = Config::load(&config_path).unwrap();
-        assert_eq!(config.compose_path(), dir.canonicalize().unwrap().join("compose.yaml"));
-        assert_eq!(config.env_path(), Some(dir.canonicalize().unwrap().join(".env")));
+        let config_file = ConfigFile::load(&config_path).unwrap();
+        let base_dir = ConfigFile::base_dir(&config_path).unwrap();
+        let config = config_file.resolve("my-stack", &base_dir).unwrap();
+        assert_eq!(config.name, "my-stack");
+        assert_eq!(config.compose_path(), base_dir.join("compose.yaml"));
+        assert_eq!(config.env_path(), Some(base_dir.join(".env")));
+        assert_eq!(config.endpoint_id, 2);
 
         std::fs::remove_file(&config_path).ok();
         std::fs::remove_dir(&dir).ok();
     }
 
     #[test]
-    fn test_config_without_env_file() {
+    fn test_config_file_without_env_file() {
         let toml_str = r#"
-name = "my-stack"
-compose_file = "compose.yaml"
 host = "https://portainer.example.com"
+
+[stacks.my-stack]
+compose_file = "compose.yaml"
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
+        let config_file: ConfigFile = toml::from_str(toml_str).unwrap();
+        let config = config_file.resolve("my-stack", Path::new(".")).unwrap();
         assert_eq!(config.env_file, None);
     }
 
     #[test]
-    fn test_config_deserialize() {
+    fn test_config_file_per_stack_endpoint_override() {
         let toml_str = r#"
-name = "my-stack"
-compose_file = "compose.yaml"
-env_file = ".env"
 host = "https://portainer.example.com"
+endpoint_id = 2
+
+[stacks.default-stack]
+compose_file = "compose.yaml"
+
+[stacks.custom-stack]
+compose_file = "other/compose.yaml"
+endpoint_id = 5
 "#;
-        let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.name, "my-stack");
-        assert_eq!(config.compose_file, "compose.yaml");
-        assert_eq!(config.env_file, Some(".env".to_string()));
-        assert_eq!(config.host, "https://portainer.example.com");
+        let config_file: ConfigFile = toml::from_str(toml_str).unwrap();
+        let default = config_file
+            .resolve("default-stack", Path::new("."))
+            .unwrap();
+        assert_eq!(default.endpoint_id, 2);
+        let custom = config_file.resolve("custom-stack", Path::new(".")).unwrap();
+        assert_eq!(custom.endpoint_id, 5);
+    }
+
+    #[test]
+    fn test_config_file_stack_not_found() {
+        let toml_str = r#"
+host = "https://portainer.example.com"
+
+[stacks.my-stack]
+compose_file = "compose.yaml"
+"#;
+        let config_file: ConfigFile = toml::from_str(toml_str).unwrap();
+        let result = config_file.resolve("nonexistent", Path::new("."));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_config_file_stack_names() {
+        let toml_str = r#"
+host = "https://portainer.example.com"
+
+[stacks.alpha]
+compose_file = "a.yaml"
+
+[stacks.beta]
+compose_file = "b.yaml"
+"#;
+        let config_file: ConfigFile = toml::from_str(toml_str).unwrap();
+        let mut names = config_file.stack_names();
+        names.sort();
+        assert_eq!(names, vec!["alpha", "beta"]);
     }
 }

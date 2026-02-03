@@ -247,7 +247,10 @@ impl PortainerClient {
             stack_file_content: file_content.to_string(),
             env,
         };
-        let path = format!("/stacks/create/standalone/string?endpointId={}", endpoint_id);
+        let path = format!(
+            "/stacks/create/standalone/string?endpointId={}",
+            endpoint_id
+        );
         let stack: Stack = self
             .post(&path)
             .send_json(&payload)

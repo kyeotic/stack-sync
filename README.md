@@ -30,18 +30,27 @@ The key is sent as an `X-API-KEY` header. The Portainer endpoint ID is resolved 
 1. Create a `stack-sync.toml` config file in your project directory:
 
 ```toml
-name = "my-stack"
-compose_file = "compose.yaml"
-env_file = ".env"
 host = "https://portainer.example.com"
+endpoint_id = 2  # optional, default 2
+
+[stacks.my-stack]
+compose_file = "compose.yaml"
+env_file = ".env"  # optional
+
+[stacks.other-stack]
+compose_file = "other/compose.yaml"
+env_file = "other/.env"
+endpoint_id = 3  # optional per-stack override
 ```
 
-| Field          | Description                                       |
-| -------------- | ------------------------------------------------- |
-| `name`         | Stack name in Portainer                           |
-| `compose_file` | Path to the local Docker Compose file             |
-| `env_file`     | Path to the local `.env` file for stack variables |
-| `host`         | Portainer instance URL                            |
+| Field              | Description                                       | Required |
+| ------------------ | ------------------------------------------------- | -------- |
+| `host`             | Portainer instance URL                            | Yes      |
+| `endpoint_id`      | Default Portainer environment/endpoint ID         | No       |
+| `stacks.<name>`    | Stack definition — the key is the stack name      | Yes      |
+| `compose_file`     | Path to the local Docker Compose file             | Yes      |
+| `env_file`         | Path to the local `.env` file for stack variables | No       |
+| `endpoint_id` (per-stack) | Override the top-level endpoint ID         | No       |
 
 2. Deploy the stack:
 
@@ -49,26 +58,37 @@ host = "https://portainer.example.com"
 stack-sync sync
 ```
 
-This creates the stack if it doesn't exist, or updates it if it does.
+This creates or updates all stacks defined in the config. To target specific stacks:
+
+```bash
+stack-sync sync my-stack
+stack-sync sync my-stack other-stack
+```
 
 ## Commands
 
 ### sync
 
-Create or update a stack in Portainer using the local compose file and env vars.
+Create or update stacks in Portainer using the local compose files and env vars.
 
 ```bash
-stack-sync sync [config-path]
+stack-sync sync                            # sync all stacks
+stack-sync sync my-stack                   # sync one stack
+stack-sync sync my-stack other-stack       # sync specific stacks
+stack-sync sync my-stack --dry-run         # preview changes
+stack-sync sync -C /path/to/config.toml    # use a different config file
 ```
 
 The config path defaults to `stack-sync.toml` in the current directory. File paths in the config (`compose_file`, `env_file`) are resolved relative to the config file's directory, not the working directory.
 
 ### view
 
-Show the current state of the stack in Portainer.
+Show the current state of stacks in Portainer.
 
 ```bash
-stack-sync view [config-path]
+stack-sync view                            # view all stacks
+stack-sync view my-stack                   # view one stack
+stack-sync view -C /path/to/config.toml    # use a different config file
 ```
 
 ### pull

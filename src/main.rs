@@ -8,7 +8,11 @@ use clap::{Parser, Subcommand};
 use std::path::Path;
 
 #[derive(Parser)]
-#[command(name = "stack-sync", version, about = "Deploy and manage Portainer stacks")]
+#[command(
+    name = "stack-sync",
+    version,
+    about = "Deploy and manage Portainer stacks"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -18,8 +22,10 @@ struct Cli {
 enum Commands {
     /// Create or update a stack in Portainer
     Sync {
-        /// Path to the config file (default: stack-sync.toml)
-        #[arg(default_value = "stack-sync.toml")]
+        /// Stack names to deploy (default: all stacks)
+        stacks: Vec<String>,
+        /// Path to the config file
+        #[arg(short = 'C', long, default_value = "stack-sync.toml")]
         config: String,
         /// Preview what would happen without making changes
         #[arg(long)]
@@ -27,8 +33,10 @@ enum Commands {
     },
     /// Show the state of a stack in Portainer
     View {
-        /// Path to the config file (default: stack-sync.toml)
-        #[arg(default_value = "stack-sync.toml")]
+        /// Stack names to show (default: all stacks)
+        stacks: Vec<String>,
+        /// Path to the config file
+        #[arg(short = 'C', long, default_value = "stack-sync.toml")]
         config: String,
     },
     /// Pull a stack's compose file and env vars from Portainer
@@ -57,25 +65,61 @@ fn get_api_key() -> Result<String> {
     )
 }
 
+fn resolve_stacks(config_path: &str, filter: &[String]) -> Result<Vec<config::Config>> {
+    let path = Path::new(config_path);
+    let config_file = config::ConfigFile::load(path)?;
+    let base_dir = config::ConfigFile::base_dir(path)?;
+
+    let names: Vec<String> = if filter.is_empty() {
+        let mut names: Vec<String> = config_file
+            .stack_names()
+            .into_iter()
+            .map(String::from)
+            .collect();
+        names.sort();
+        names
+    } else {
+        filter.to_vec()
+    };
+
+    names
+        .iter()
+        .map(|name| config_file.resolve(name, &base_dir))
+        .collect()
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Sync { config: config_path, dry_run } => {
+        Commands::Sync {
+            stacks,
+            config: config_path,
+            dry_run,
+        } => {
             let api_key = get_api_key()?;
-            let config = config::Config::load(Path::new(&config_path))?;
-            let client = portainer::PortainerClient::new(&config.host, &api_key);
-            if dry_run {
-                commands::sync_dry_run(&config, &client)
-            } else {
-                commands::sync(&config, &client)
+            let configs = resolve_stacks(&config_path, &stacks)?;
+            for config in &configs {
+                let client = portainer::PortainerClient::new(&config.host, &api_key);
+                if dry_run {
+                    commands::sync_dry_run(config, &client)?;
+                } else {
+                    commands::sync(config, &client)?;
+                }
             }
+            Ok(())
         }
-        Commands::View { config: config_path } => {
+        Commands::View {
+            stacks,
+            config: config_path,
+        } => {
             let api_key = get_api_key()?;
-            let config = config::Config::load(Path::new(&config_path))?;
-            let client = portainer::PortainerClient::new(&config.host, &api_key);
-            commands::view(&config, &client)
+            let configs = resolve_stacks(&config_path, &stacks)?;
+            for config in &configs {
+                let client = portainer::PortainerClient::new(&config.host, &api_key);
+                commands::view(config, &client)?;
+            }
+            Ok(())
         }
         Commands::Pull {
             host,
