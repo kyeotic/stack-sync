@@ -58,21 +58,13 @@ enum Commands {
     Upgrade,
 }
 
-fn get_api_key() -> Result<String> {
-    std::env::var("PORTAINER_API_KEY").context(
-        "PORTAINER_API_KEY environment variable is required. \
-         Create an API key in Portainer under User Settings > Access Tokens.",
-    )
-}
-
-fn resolve_stacks(config_path: &str, filter: &[String]) -> Result<Vec<config::Config>> {
+fn resolve_stacks(config_path: &str, filter: &[String]) -> Result<(String, Vec<config::Config>)> {
     let path = Path::new(config_path);
-    let resolved_path = config::find_config_file(path)?;
-    let config_file = config::ConfigFile::load(&resolved_path)?;
-    let base_dir = config::ConfigFile::base_dir(&resolved_path)?;
+    let (global_config, local_config, config_path) = config::resolve_config_chain(path)?;
+    let base_dir = config_path.parent().unwrap_or(Path::new(".")).to_path_buf();
 
     let names: Vec<String> = if filter.is_empty() {
-        let mut names: Vec<String> = config_file
+        let mut names: Vec<String> = local_config
             .stack_names()
             .into_iter()
             .map(String::from)
@@ -83,10 +75,12 @@ fn resolve_stacks(config_path: &str, filter: &[String]) -> Result<Vec<config::Co
         filter.to_vec()
     };
 
-    names
+    let configs: Result<Vec<config::Config>> = names
         .iter()
-        .map(|name| config_file.resolve(name, &base_dir))
-        .collect()
+        .map(|name| local_config.resolve(name, &global_config, &base_dir))
+        .collect();
+
+    Ok((global_config.api_key, configs?))
 }
 
 fn main() -> Result<()> {
@@ -98,8 +92,7 @@ fn main() -> Result<()> {
             config: config_path,
             dry_run,
         } => {
-            let api_key = get_api_key()?;
-            let configs = resolve_stacks(&config_path, &stacks)?;
+            let (api_key, configs) = resolve_stacks(&config_path, &stacks)?;
             for config in &configs {
                 let client = portainer::PortainerClient::new(&config.host, &api_key);
                 if dry_run {
@@ -114,8 +107,7 @@ fn main() -> Result<()> {
             stacks,
             config: config_path,
         } => {
-            let api_key = get_api_key()?;
-            let configs = resolve_stacks(&config_path, &stacks)?;
+            let (api_key, configs) = resolve_stacks(&config_path, &stacks)?;
             for config in &configs {
                 let client = portainer::PortainerClient::new(&config.host, &api_key);
                 commands::view(config, &client)?;
@@ -128,7 +120,10 @@ fn main() -> Result<()> {
             file,
             env,
         } => {
-            let api_key = get_api_key()?;
+            let api_key = std::env::var("PORTAINER_API_KEY").context(
+                "PORTAINER_API_KEY environment variable is required for pull. \
+                 Create an API key in Portainer under User Settings > Access Tokens.",
+            )?;
             commands::pull(&host, &stack, &file, &env, &api_key)
         }
         Commands::Upgrade => update::upgrade(),
