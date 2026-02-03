@@ -4,12 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.3.1] - 2026-02-03
+## [0.3.2] - 2026-02-03
 
 ### Added
 - `redeploy` command to force image re-pull and redeploy a stack
 
-## [0.3.0] - 2026-02-03
+## [0.3.1] - 2026-02-03
 
 ### Changed
 - `sync` change detection now ignores trialing newlines
