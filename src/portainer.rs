@@ -267,12 +267,14 @@ impl PortainerClient {
         endpoint_id: u64,
         file_content: &str,
         env: Vec<EnvVar>,
+        prune: bool,
+        pull_image: bool,
     ) -> Result<Stack> {
         let payload = UpdateStackPayload {
             stack_file_content: file_content.to_string(),
             env,
-            prune: false,
-            pull_image: true,
+            prune,
+            pull_image,
         };
         let path = format!("/stacks/{}?endpointId={}", id, endpoint_id);
         let stack: Stack = self

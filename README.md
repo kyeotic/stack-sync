@@ -133,6 +133,24 @@ stack-sync import my-stack -C /path/to/dir    # use a different config directory
 
 Creates `{stack}.compose.yaml` and `{stack}.env` files, and adds a `[stacks.{stack}]` entry to the local config.
 
+### redeploy
+
+Force a stack to re-pull images and redeploy. Useful after pushing new images to a local registry. This command uses the current configuration from Portainer (not local files) — it triggers a re-pull without changing the stack's compose file or environment variables.
+
+```bash
+stack-sync redeploy my-stack                   # redeploy a stack
+stack-sync redeploy my-stack --dry-run         # preview what would happen
+stack-sync redeploy my-stack -C /path/to/dir   # use a different config directory
+```
+
+| Argument    | Description                         | Required |
+| ----------- | ----------------------------------- | -------- |
+| `<stack>`   | Name of the stack to redeploy       | Yes      |
+| `-C`        | Path to config file or directory    | No       |
+| `--dry-run` | Preview without making changes      | No       |
+
+The stack must exist in both the local config and in Portainer.
+
 ### upgrade
 
 Check for the latest release and update the binary in-place.

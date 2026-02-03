@@ -68,6 +68,17 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+    /// Redeploy a stack to pull new images
+    Redeploy {
+        /// Stack name to redeploy (must exist in config)
+        stack: String,
+        /// Path to the config file
+        #[arg(short = 'C', long, default_value = ".")]
+        config: String,
+        /// Preview what would happen without making changes
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Upgrade to the latest version
     Upgrade,
 }
@@ -169,6 +180,21 @@ fn main() -> Result<()> {
                 endpoint_id,
                 force,
             )
+        }
+        Commands::Redeploy {
+            stack,
+            config: config_path,
+            dry_run,
+        } => {
+            let (api_key, configs) = resolve_stacks(&config_path, &[stack])?;
+            let config = &configs[0];
+            let client = portainer::PortainerClient::new(&config.host, &api_key);
+            if dry_run {
+                commands::redeploy_dry_run(config, &client)?;
+            } else {
+                commands::redeploy(config, &client)?;
+            }
+            Ok(())
         }
         Commands::Upgrade => update::upgrade(),
     }

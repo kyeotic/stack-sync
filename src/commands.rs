@@ -102,8 +102,14 @@ pub fn sync(config: &Config, client: &PortainerClient) -> Result<()> {
                 return Ok(());
             }
             println!("Updating stack '{}'...", config.name);
-            let stack =
-                client.update_stack(existing.id, config.endpoint_id, &compose_content, env_vars)?;
+            let stack = client.update_stack(
+                existing.id,
+                config.endpoint_id,
+                &compose_content,
+                env_vars,
+                false,
+                true,
+            )?;
             println!("Stack '{}' updated (id: {})", stack.name, stack.id);
         }
         None => {
@@ -117,6 +123,75 @@ pub fn sync(config: &Config, client: &PortainerClient) -> Result<()> {
             println!("Stack '{}' created (id: {})", stack.name, stack.id);
         }
     }
+
+    Ok(())
+}
+
+pub fn redeploy_dry_run(config: &Config, client: &PortainerClient) -> Result<()> {
+    println!(
+        "\n{BOLD}{CYAN}[dry-run]{RESET} Previewing redeploy for stack '{BOLD}{}{RESET}'",
+        config.name
+    );
+
+    match client.find_stack_by_name(&config.name)? {
+        Some(stack) => {
+            let status = match stack.status {
+                1 => "active",
+                2 => "inactive",
+                _ => "unknown",
+            };
+            println!(
+                "{BOLD}{CYAN}[dry-run]{RESET} Stack found in Portainer (id: {})",
+                stack.id
+            );
+            println!("{BOLD}{CYAN}[dry-run]{RESET} Current status: {}", status);
+            println!(
+                "{BOLD}{CYAN}[dry-run]{RESET} Endpoint ID: {}",
+                stack.endpoint_id
+            );
+            println!(
+                "{BOLD}{CYAN}[dry-run]{RESET} Env vars: {}",
+                stack.env.len()
+            );
+            println!(
+                "{BOLD}{YELLOW}[dry-run]{RESET} Would {BOLD}redeploy{RESET} stack '{BOLD}{}{RESET}' with prune=true, pull_image=true",
+                config.name
+            );
+        }
+        None => {
+            println!(
+                "{BOLD}{YELLOW}[dry-run]{RESET} Stack '{BOLD}{}{RESET}' not found in Portainer.",
+                config.name
+            );
+            println!("{BOLD}{CYAN}[dry-run]{RESET} Use 'sync' to create the stack first.");
+        }
+    }
+
+    Ok(())
+}
+
+pub fn redeploy(config: &Config, client: &PortainerClient) -> Result<()> {
+    let stack = client
+        .find_stack_by_name(&config.name)?
+        .context(format!(
+            "Stack '{}' not found in Portainer. Use 'sync' to create it first.",
+            config.name
+        ))?;
+
+    println!("Redeploying stack '{}'...", config.name);
+
+    let compose_content = client.get_stack_file(stack.id)?;
+
+    let updated = client.update_stack(
+        stack.id,
+        stack.endpoint_id,
+        &compose_content,
+        stack.env.clone(),
+        true,
+        true,
+    )?;
+
+    println!("Stack '{}' redeployed (id: {})", updated.name, updated.id);
 
     Ok(())
 }
