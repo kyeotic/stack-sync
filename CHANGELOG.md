@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [0.3.0] - 2026-02-03
 
+### Changed
+- `sync` change detection now ignores trialing newlines
+
+
+## [0.3.0] - 2026-02-03
+
 ### Added
 - `init` command to create config files for new projects
 - `import` command to import existing stacks from Portainer

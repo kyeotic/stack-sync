@@ -51,24 +51,34 @@ pub fn sync_dry_run(config: &Config, client: &PortainerClient) -> Result<()> {
 
     match client.find_stack_by_name(&config.name)? {
         Some(existing) => {
-            println!(
-                "{BOLD}{YELLOW}[dry-run]{RESET} Would {BOLD}update{RESET} existing stack '{BOLD}{}{RESET}' (id: {})",
-                existing.name, existing.id
-            );
+            let remote_compose = client.get_stack_file(existing.id)?;
+            if remote_compose.trim_end() == compose_content.trim_end() && existing.env == env_vars
+            {
+                println!(
+                    "{BOLD}{GREEN}[dry-run]{RESET} Stack '{BOLD}{}{RESET}' is already in sync.",
+                    config.name
+                );
+            } else {
+                println!(
+                    "{BOLD}{YELLOW}[dry-run]{RESET} Would {BOLD}update{RESET} existing stack '{BOLD}{}{RESET}' (id: {})",
+                    existing.name, existing.id
+                );
+                if !env_vars.is_empty() {
+                    println!("{BOLD}{CYAN}[dry-run]{RESET} ENV defined");
+                }
+            }
         }
         None => {
             println!(
                 "{BOLD}{GREEN}[dry-run]{RESET} Would {BOLD}create{RESET} new stack '{BOLD}{}{RESET}'",
                 config.name
             );
+            if !env_vars.is_empty() {
+                println!("{BOLD}{CYAN}[dry-run]{RESET} ENV defined");
+            }
         }
     }
 
-    if !env_vars.is_empty() {
-        println!("{BOLD}{CYAN}[dry-run]{RESET} ENV defined");
-    }
-
-    println!("{BOLD}{CYAN}[dry-run]{RESET} No changes were made.");
     Ok(())
 }
 
@@ -86,7 +96,8 @@ pub fn sync(config: &Config, client: &PortainerClient) -> Result<()> {
     match client.find_stack_by_name(&config.name)? {
         Some(existing) => {
             let remote_compose = client.get_stack_file(existing.id)?;
-            if remote_compose == compose_content && existing.env == env_vars {
+            if remote_compose.trim_end() == compose_content.trim_end() && existing.env == env_vars
+            {
                 println!("Stack '{}' is already in sync.", config.name);
                 return Ok(());
             }
