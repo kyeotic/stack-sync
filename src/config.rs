@@ -276,11 +276,15 @@ pub fn append_stack_to_config(
     compose_file: &str,
     env_file: Option<&str>,
 ) -> Result<()> {
-    let content = std::fs::read_to_string(config_path)
-        .context(format!("Failed to read config file: {}", config_path.display()))?;
+    let content = std::fs::read_to_string(config_path).context(format!(
+        "Failed to read config file: {}",
+        config_path.display()
+    ))?;
 
-    let mut config: PartialConfigFile = toml::from_str(&content)
-        .context(format!("Failed to parse config file: {}", config_path.display()))?;
+    let mut config: PartialConfigFile = toml::from_str(&content).context(format!(
+        "Failed to parse config file: {}",
+        config_path.display()
+    ))?;
 
     let entry = StackEntry {
         compose_file: compose_file.to_string(),
@@ -291,17 +295,23 @@ pub fn append_stack_to_config(
     config.stacks.insert(stack_name.to_string(), entry);
 
     let new_content = serialize_config(&config)?;
-    std::fs::write(config_path, new_content)
-        .context(format!("Failed to write config file: {}", config_path.display()))
+    std::fs::write(config_path, new_content).context(format!(
+        "Failed to write config file: {}",
+        config_path.display()
+    ))
 }
 
 /// Check if a stack exists in the config file
 pub fn stack_exists_in_config(config_path: &Path, stack_name: &str) -> Result<bool> {
-    let content = std::fs::read_to_string(config_path)
-        .context(format!("Failed to read config file: {}", config_path.display()))?;
+    let content = std::fs::read_to_string(config_path).context(format!(
+        "Failed to read config file: {}",
+        config_path.display()
+    ))?;
 
-    let config: PartialConfigFile = toml::from_str(&content)
-        .context(format!("Failed to parse config file: {}", config_path.display()))?;
+    let config: PartialConfigFile = toml::from_str(&content).context(format!(
+        "Failed to parse config file: {}",
+        config_path.display()
+    ))?;
 
     Ok(config.stacks.contains_key(stack_name))
 }

@@ -1,6 +1,6 @@
 # stack-sync
 
-Deploy and manage [Portainer](https://www.portainer.io/) stacks from the command line. Sync local Docker Compose files and environment variables to Portainer, or pull existing stacks down for local editing.
+Deploy and manage [Portainer](https://www.portainer.io/) stacks from the command line. Sync local Docker Compose files and environment variables to Portainer, or import existing stacks for local editing.
 
 ## Prerequisites
 
@@ -91,24 +91,47 @@ stack-sync view my-stack                   # view one stack
 stack-sync view -C /path/to/config.toml    # use a different config file
 ```
 
-### pull
+### init
 
-Download a stack's compose file and environment variables from Portainer to local files. This command does not require a config file.
+Initialize config files for a new project. Creates a parent config with credentials and a local config with an example stack.
 
 ```bash
-stack-sync pull \
+stack-sync init \
+  --portainer-api-key ptr_xxx \
   --host https://portainer.example.com \
-  --stack my-stack \
-  --file compose.yaml \
-  --env .env
+  --endpoint-id 2 \
+  --parent-dir ~
 ```
 
-| Argument  | Description                                |
-| --------- | ------------------------------------------ |
-| `--host`  | Portainer hostname                         |
-| `--stack` | Name of the stack in Portainer             |
-| `--file`  | Path to write the compose file to          |
-| `--env`   | Path to write the environment variables to |
+| Argument              | Description                                  | Required |
+| --------------------- | -------------------------------------------- | -------- |
+| `--portainer-api-key` | Portainer API key                            | Yes      |
+| `--host`              | Portainer hostname                           | Yes      |
+| `--endpoint-id`       | Default endpoint ID (defaults to 2)          | No       |
+| `--parent-dir`        | Directory for credentials config (default ~) | No       |
+| `--force`             | Overwrite existing files                     | No       |
+
+This creates two files:
+- `{parent-dir}/.stack-sync.toml` — credentials (api key, host, endpoint)
+- `./.stack-sync.toml` — local config with example stack commented out
+
+### import
+
+Import an existing stack from Portainer into your local config. Downloads the compose file and env vars, and adds the stack to your config.
+
+```bash
+stack-sync import my-stack                    # import a stack
+stack-sync import my-stack --force            # overwrite existing files
+stack-sync import my-stack -C /path/to/dir    # use a different config directory
+```
+
+| Argument    | Description                         | Required |
+| ----------- | ----------------------------------- | -------- |
+| `<stack>`   | Name of the stack in Portainer      | Yes      |
+| `-C`        | Path to config file or directory    | No       |
+| `--force`   | Overwrite existing files            | No       |
+
+Creates `{stack}.compose.yaml` and `{stack}.env` files, and adds a `[stacks.{stack}]` entry to the local config.
 
 ### upgrade
 

@@ -39,20 +39,34 @@ enum Commands {
         #[arg(short = 'C', long, default_value = ".")]
         config: String,
     },
-    /// Pull a stack's compose file and env vars from Portainer
-    Pull {
+    /// Import a stack from Portainer into the local config
+    Import {
+        /// Name of the stack in Portainer to import
+        stack: String,
+        /// Path to the config file or directory
+        #[arg(short = 'C', long, default_value = ".")]
+        config: String,
+        /// Overwrite existing files
+        #[arg(long)]
+        force: bool,
+    },
+    /// Initialize config files for stack-sync
+    Init {
+        /// Portainer API key
+        #[arg(long)]
+        portainer_api_key: String,
         /// Portainer hostname (e.g. https://portainer.example.com)
         #[arg(long)]
         host: String,
-        /// Name of the stack in Portainer
+        /// Endpoint ID (optional, defaults to 2)
         #[arg(long)]
-        stack: String,
-        /// Path to write the compose file to
+        endpoint_id: Option<u64>,
+        /// Parent directory for global config (defaults to $HOME)
         #[arg(long)]
-        file: String,
-        /// Path to write the env vars to
+        parent_dir: Option<String>,
+        /// Overwrite existing files
         #[arg(long)]
-        env: String,
+        force: bool,
     },
     /// Upgrade to the latest version
     Upgrade,
@@ -114,17 +128,47 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Pull {
-            host,
+        Commands::Import {
             stack,
-            file,
-            env,
+            config: config_path,
+            force,
         } => {
-            let api_key = std::env::var("PORTAINER_API_KEY").context(
-                "PORTAINER_API_KEY environment variable is required for pull. \
-                 Create an API key in Portainer under User Settings > Access Tokens.",
-            )?;
-            commands::pull(&host, &stack, &file, &env, &api_key)
+            let path = Path::new(&config_path);
+            if !config::local_config_exists(path) {
+                anyhow::bail!(
+                    "No config file found at '{}'. Run 'stack-sync init' first to create one.",
+                    config::local_config_path(path).display()
+                );
+            }
+            let (global_config, _, local_config_path) = config::resolve_config_chain(path)?;
+            commands::import_stack(
+                &local_config_path,
+                &stack,
+                &global_config.api_key,
+                &global_config.host,
+                force,
+            )
+        }
+        Commands::Init {
+            portainer_api_key,
+            host,
+            endpoint_id,
+            parent_dir,
+            force,
+        } => {
+            let parent = parent_dir
+                .map(std::path::PathBuf::from)
+                .or_else(|| std::env::var("HOME").ok().map(std::path::PathBuf::from))
+                .context("Could not determine parent directory. Set --parent-dir or $HOME.")?;
+            let local = std::env::current_dir().context("Could not determine current directory")?;
+            commands::init(
+                &parent,
+                &local,
+                &portainer_api_key,
+                &host,
+                endpoint_id,
+                force,
+            )
         }
         Commands::Upgrade => update::upgrade(),
     }

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use std::path::Path;
 
-use crate::config::{self, Config, EnvVar};
+use crate::config::{self, Config};
 use crate::portainer::PortainerClient;
 
 // ANSI color helpers
@@ -144,27 +144,125 @@ pub fn view(config: &Config, client: &PortainerClient) -> Result<()> {
     Ok(())
 }
 
-pub fn pull(
-    host: &str,
+pub fn import_stack(
+    config_path: &Path,
     stack_name: &str,
-    file_path: &str,
-    env_path: &str,
     api_key: &str,
+    host: &str,
+    force: bool,
 ) -> Result<()> {
+    let base_dir = config_path.parent().unwrap_or(Path::new("."));
+
+    // Check if stack already exists in config
+    if config::stack_exists_in_config(config_path, stack_name)? && !force {
+        anyhow::bail!(
+            "Stack '{}' already exists in config. Use --force to overwrite.",
+            stack_name
+        );
+    }
+
     let client = PortainerClient::new(host, api_key);
 
     let stack = client
         .find_stack_by_name(stack_name)?
-        .context(format!("Stack '{}' not found", stack_name))?;
+        .context(format!("Stack '{}' not found in Portainer", stack_name))?;
 
+    // Define file paths
+    let compose_filename = format!("{}.compose.yaml", stack_name);
+    let env_filename = format!("{}.env", stack_name);
+    let compose_path = base_dir.join(&compose_filename);
+    let env_path = base_dir.join(&env_filename);
+
+    // Check if files exist (unless force)
+    if !force {
+        if compose_path.exists() {
+            anyhow::bail!(
+                "Compose file '{}' already exists. Use --force to overwrite.",
+                compose_path.display()
+            );
+        }
+        if env_path.exists() && !stack.env.is_empty() {
+            anyhow::bail!(
+                "Env file '{}' already exists. Use --force to overwrite.",
+                env_path.display()
+            );
+        }
+    }
+
+    // Fetch and write compose file
     let file_content = client.get_stack_file(stack.id)?;
-    std::fs::write(file_path, &file_content)
-        .context(format!("Failed to write compose file: {}", file_path))?;
-    println!("Wrote compose file to {}", file_path);
+    std::fs::write(&compose_path, &file_content).context(format!(
+        "Failed to write compose file: {}",
+        compose_path.display()
+    ))?;
+    println!("Wrote compose file to {}", compose_path.display());
 
-    let env_vars: Vec<EnvVar> = stack.env;
-    config::write_env_file(Path::new(env_path), &env_vars)?;
-    println!("Wrote env file to {}", env_path);
+    // Write env file if stack has env vars
+    let env_file_ref = if !stack.env.is_empty() {
+        config::write_env_file(&env_path, &stack.env)?;
+        println!("Wrote env file to {}", env_path.display());
+        Some(env_filename.as_str())
+    } else {
+        None
+    };
+
+    // Add stack to config
+    config::append_stack_to_config(config_path, stack_name, &compose_filename, env_file_ref)?;
+    println!("Added stack '{}' to config", stack_name);
+
+    Ok(())
+}
+
+pub fn init(
+    parent_dir: &Path,
+    local_dir: &Path,
+    api_key: &str,
+    host: &str,
+    endpoint_id: Option<u64>,
+    force: bool,
+) -> Result<()> {
+    let parent_config_path = parent_dir.join(".stack-sync.toml");
+    let local_config_path = local_dir.join(".stack-sync.toml");
+
+    // Check that parent and local are different directories
+    let parent_canonical = parent_dir
+        .canonicalize()
+        .unwrap_or_else(|_| parent_dir.to_path_buf());
+    let local_canonical = local_dir
+        .canonicalize()
+        .unwrap_or_else(|_| local_dir.to_path_buf());
+
+    if parent_canonical == local_canonical {
+        anyhow::bail!(
+            "Parent directory and current directory are the same ({}). \
+             Use --parent-dir to specify a different parent directory.",
+            parent_canonical.display()
+        );
+    }
+
+    // Check if files exist (unless force)
+    if !force {
+        if parent_config_path.exists() {
+            anyhow::bail!(
+                "Parent config '{}' already exists. Use --force to overwrite.",
+                parent_config_path.display()
+            );
+        }
+        if local_config_path.exists() {
+            anyhow::bail!(
+                "Local config '{}' already exists. Use --force to overwrite.",
+                local_config_path.display()
+            );
+        }
+    }
+
+    // Create parent config with credentials
+    config::write_parent_config(&parent_config_path, api_key, host, endpoint_id)?;
+    println!("Created parent config at {}", parent_config_path.display());
+
+    // Create local config with example
+    config::write_local_config_template(&local_config_path)?;
+    println!("Created local config at {}", local_config_path.display());
 
     Ok(())
 }
