@@ -1,0 +1,981 @@
+basePath: /api
+definitions:
+  stacks.updateSwarmStackPayload:
+    properties:
+      env:
+        description: A list of environment(endpoint) variables used during stack deployment
+        items:
+          $ref: '#/definitions/portainer.Pair'
+        type: array
+      prune:
+        description: Prune services that are no longer referenced (only available
+          for Swarm stacks)
+        example: true
+        type: boolean
+      pullImage:
+        description: Force a pulling to current image with the original tag though
+          the image is already the latest
+        example: false
+        type: boolean
+      stackFileContent:
+        description: New content of the Stack file
+        example: |-
+          version: 3
+           services:
+           web:
+           image:nginx
+        type: string
+    type: object
+  portainer.Stack:
+    properties:
+      AdditionalFiles:
+        description: Only applies when deploying stack with multiple files
+        items:
+          type: string
+        type: array
+      AutoUpdate:
+        allOf:
+        - $ref: '#/definitions/portainer.AutoUpdateSettings'
+        description: The GitOps update settings of a git stack
+      EndpointId:
+        description: Environment(Endpoint) identifier. Reference the environment(endpoint)
+          that will be used for deployment
+        example: 1
+        type: integer
+      EntryPoint:
+        description: Path to the Stack file
+        example: docker-compose.yml
+        type: string
+      Env:
+        description: A list of environment(endpoint) variables used during stack deployment
+        items:
+          $ref: '#/definitions/portainer.Pair'
+        type: array
+      Id:
+        description: Stack Identifier
+        example: 1
+        type: integer
+      Name:
+        description: Stack name
+        example: myStack
+        type: string
+      Option:
+        allOf:
+        - $ref: '#/definitions/portainer.StackOption'
+        description: The stack deployment option
+      ResourceControl:
+        $ref: '#/definitions/portainer.ResourceControl'
+      Status:
+        allOf:
+        - $ref: '#/definitions/portainer.StackStatus'
+        description: Stack status (1 - active, 2 - inactive)
+        example: 1
+      SwarmId:
+        description: Cluster identifier of the Swarm cluster where the stack is deployed
+        example: jpofkc0i9uo9wtx1zesuk649w
+        type: string
+      Type:
+        allOf:
+        - $ref: '#/definitions/portainer.StackType'
+        description: Stack type. 1 for a Swarm stack, 2 for a Compose stack
+        example: 2
+      createdBy:
+        description: The username which created this stack
+        example: admin
+        type: string
+      creationDate:
+        description: The date in unix time when stack was created
+        example: 1587399600
+        type: integer
+      fromAppTemplate:
+        description: Whether the stack is from a app template
+        example: false
+        type: boolean
+      gitConfig:
+        allOf:
+        - $ref: '#/definitions/gittypes.RepoConfig'
+        description: The git config of this stack
+      namespace:
+        description: Kubernetes namespace if stack is a kube application
+        example: default
+        type: string
+      projectPath:
+        description: Path on disk to the repository hosting the Stack file
+        example: /data/compose/myStack_jpofkc0i9uo9wtx1zesuk649w
+        type: string
+      updateDate:
+        description: The date in unix time when stack was last updated
+        example: 1587399600
+        type: integer
+      updatedBy:
+        description: The username which last updated this stack
+        example: bob
+        type: string
+    type: object
+  portainer.StackDeploymentInfo:
+    properties:
+      ConfigHash:
+        description: ConfigHash is the commit hash of the git repository used for
+          deploying the stack
+        type: string
+      FileVersion:
+        description: FileVersion is the version of the stack file, used to detect
+          changes
+        type: integer
+      Version:
+        description: Version is the version of the stack and also is the deployed
+          version in edge agent
+        type: integer
+    type: object
+  portainer.StackOption:
+    properties:
+      prune:
+        description: Prune services that are no longer referenced
+        example: false
+        type: boolean
+    type: object
+  portainer.StackStatus:
+    enum:
+    - 0
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - _
+    - StackStatusActive
+    - StackStatusInactive
+  portainer.StackType:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    type: integer
+    x-enum-varnames:
+    - _
+    - DockerSwarmStack
+    - DockerComposeStack
+    - KubernetesStack
+  stacks.composeStackFromFileContentPayload:
+    properties:
+      env:
+        description: A list of environment variables used during stack deployment
+        items:
+          $ref: '#/definitions/portainer.Pair'
+        type: array
+      fromAppTemplate:
+        description: Whether the stack is from a app template
+        example: false
+        type: boolean
+      name:
+        description: Name of the stack
+        example: myStack
+        type: string
+      stackFileContent:
+        description: Content of the Stack file
+        example: |-
+          version: 3
+           services:
+           web:
+           image:nginx
+        type: string
+    required:
+    - name
+    - stackFileContent
+    type: object
+  stacks.composeStackFromGitRepositoryPayload:
+    properties:
+      additionalFiles:
+        description: Applicable when deploying with multiple stack files
+        example:
+        - '[nz.compose.yml'
+        - ' uat.compose.yml]'
+        items:
+          type: string
+        type: array
+      autoUpdate:
+        allOf:
+        - $ref: '#/definitions/portainer.AutoUpdateSettings'
+        description: Optional GitOps update configuration
+      composeFile:
+        default: docker-compose.yml
+        description: Path to the Stack file inside the Git repository
+        example: docker-compose.yml
+        type: string
+      env:
+        description: A list of environment variables used during stack deployment
+        items:
+          $ref: '#/definitions/portainer.Pair'
+        type: array
+      fromAppTemplate:
+        description: Whether the stack is from a app template
+        example: false
+        type: boolean
+      name:
+        description: Name of the stack
+        example: myStack
+        type: string
+      repositoryAuthentication:
+        description: Use basic authentication to clone the Git repository
+        example: true
+        type: boolean
+      repositoryPassword:
+        description: Password used in basic authentication. Required when RepositoryAuthentication
+          is true.
+        example: myGitPassword
+        type: string
+      repositoryReferenceName:
+        description: Reference name of a Git repository hosting the Stack file
+        example: refs/heads/master
+        type: string
+      repositoryURL:
+        description: URL of a Git repository hosting the Stack file
+        example: https://github.com/openfaas/faas
+        type: string
+      repositoryUsername:
+        description: Username used in basic authentication. Required when RepositoryAuthentication
+          is true.
+        example: myGitUsername
+        type: string
+      tlsskipVerify:
+        description: TLSSkipVerify skips SSL verification when cloning the Git repository
+        example: false
+        type: boolean
+    required:
+    - name
+    - repositoryURL
+    type: object
+  stacks.stackFileResponse:
+    properties:
+      StackFileContent:
+        description: Content of the Stack file
+        example: |-
+          version: 3
+           services:
+           web:
+           image:nginx
+        type: string
+    type: object
+  stacks.stackGitRedployPayload:
+    properties:
+      env:
+        items:
+          $ref: '#/definitions/portainer.Pair'
+        type: array
+      prune:
+        type: boolean
+      pullImage:
+        description: Force a pulling to current image with the original tag though
+          the image is already the latest
+        example: false
+        type: boolean
+      repositoryAuthentication:
+        type: boolean
+      repositoryAuthorizationType:
+        $ref: '#/definitions/gittypes.GitCredentialAuthType'
+      repositoryPassword:
+        type: string
+      repositoryReferenceName:
+        type: string
+      repositoryUsername:
+        type: string
+      stackName:
+        type: string
+    type: object
+  stacks.stackGitUpdatePayload:
+    properties:
+      autoUpdate:
+        $ref: '#/definitions/portainer.AutoUpdateSettings'
+      env:
+        items:
+          $ref: '#/definitions/portainer.Pair'
+        type: array
+      prune:
+        type: boolean
+      repositoryAuthentication:
+        type: boolean
+      repositoryAuthorizationType:
+        $ref: '#/definitions/gittypes.GitCredentialAuthType'
+      repositoryPassword:
+        type: string
+      repositoryReferenceName:
+        type: string
+      repositoryUsername:
+        type: string
+      tlsskipVerify:
+        type: boolean
+    type: object
+info:
+  contact:
+    email: info@portainer.io
+  description: |
+    Portainer API is an HTTP API served by Portainer. It is used by the Portainer UI and everything you can do with the UI can be done using the HTTP API.
+    Examples are available at https://documentation.portainer.io/api/api-examples/
+    You can find out more about Portainer at [http://portainer.io](http://portainer.io) and get some support on [Slack](http://portainer.io/slack/).
+
+    # Authentication
+
+    Most of the API environments(endpoints) require to be authenticated as well as some level of authorization to be used.
+    Portainer API uses JSON Web Token to manage authentication and thus requires you to provide a token in the **Authorization** header of each request
+    with the **Bearer** authentication mechanism.
+
+    Example:
+
+    ```
+    Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOjEsImV4cCI6MTQ5OTM3NjE1NH0.NJ6vE8FY1WG6jsRQzfMqeatJ4vh2TWAeeYfDhP71YEE
+    ```
+
+    # Security
+
+    Each API environment(endpoint) has an associated access policy, it is documented in the description of each environment(endpoint).
+
+    Different access policies are available:
+
+    - Public access
+    - Authenticated access
+    - Restricted access
+    - Administrator access
+
+    ### Public access
+
+    No authentication is required to access the environments(endpoints) with this access policy.
+
+    ### Authenticated access
+
+    Authentication is required to access the environments(endpoints) with this access policy.
+
+    ### Restricted access
+
+    Authentication is required to access the environments(endpoints) with this access policy.
+    Extra-checks might be added to ensure access to the resource is granted. Returned data might also be filtered.
+
+    ### Administrator access
+
+    Authentication as well as an administrator role are required to access the environments(endpoints) with this access policy.
+
+    # Execute Docker requests
+
+    Portainer **DO NOT** expose specific environments(endpoints) to manage your Docker resources (create a container, remove a volume, etc...).
+
+    Instead, it acts as a reverse-proxy to the Docker HTTP API. This means that you can execute Docker requests **via** the Portainer HTTP API.
+
+    To do so, you can use the `/endpoints/{id}/docker` Portainer API environment(endpoint) (which is not documented below due to Swagger limitations). This environment(endpoint) has a restricted access policy so you still need to be authenticated to be able to query this environment(endpoint). Any query on this environment(endpoint) will be proxied to the Docker API of the associated environment(endpoint) (requests and responses objects are the same as documented in the Docker API).
+
+    # Private Registry
+
+    Using private registry, you will need to pass a based64 encoded JSON string ‘{"registryId":\<registryID value\>}’ inside the Request Header. The parameter name is "X-Registry-Auth".
+    \<registryID value\> - The registry ID where the repository was created.
+
+    Example:
+
+    ```
+    eyJyZWdpc3RyeUlkIjoxfQ==
+    ```
+
+    **NOTE**: You can find more information on how to query the Docker API in the [Docker official documentation](https://docs.docker.com/engine/api/v1.30/) as well as in [this Portainer example](https://documentation.portainer.io/api/api-examples/).
+  license:
+    name: zlib
+    url: https://github.com/portainer/portainer/blob/develop/LICENSE
+  title: PortainerCE API
+  version: 2.33.6
+paths:
+  /endpoints:
+    delete:
+      consumes:
+      - application/json
+      deprecated: true
+      description: |-
+        Deprecated: use the `POST` endpoint instead.
+        Remove multiple environments and optionally clean-up associated resources.
+        **Access policy**: Administrator only.
+      operationId: EndpointDeleteBatchDeprecated
+      parameters:
+      - description: List of environments to delete, with optional deleteCluster flag
+          to clean-up associated resources (cloud environments only)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/endpoints.endpointDeleteBatchPayload'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Environment(s) successfully deleted.
+        "207":
+          description: Partial success. Some environments were deleted successfully,
+            while others failed.
+          schema:
+            $ref: '#/definitions/endpoints.endpointDeleteBatchPartialResponse'
+        "400":
+          description: Invalid request payload, such as missing required fields or
+            fields not meeting validation criteria.
+        "403":
+          description: Unauthorized access or operation not allowed.
+        "500":
+          description: Server error occurred while attempting to delete the specified
+            environments.
+      security:
+      - ApiKeyAuth: []
+        jwt: []
+      summary: Remove multiple environments
+      tags:
+      - endpoints
+    get:
+      description: |-
+        List all environments(endpoints) based on the current user authorizations. Will
+        return all environments(endpoints) if using an administrator or team leader account otherwise it will
+        only return authorized environments(endpoints).
+        **Access policy**: restricted
+      operationId: EndpointList
+      parameters:
+      - description: Start searching from
+        in: query
+        name: start
+        type: integer
+      - description: Limit results to this value
+        in: query
+        name: limit
+        type: integer
+      - description: Sort results by this value
+        enum:
+        - Name
+        - Group
+        - Status
+        - LastCheckIn
+        - EdgeID
+        in: query
+        name: sort
+        type: string
+      - description: Order sorted results by desc/asc
+        in: query
+        name: order
+        type: integer
+      - description: Search query
+        in: query
+        name: search
+        type: string
+      - collectionFormat: csv
+        description: List environments(endpoints) of these groups
+        in: query
+        items:
+          type: integer
+        name: groupIds
+        type: array
+      - collectionFormat: csv
+        description: List environments(endpoints) by this status
+        in: query
+        items:
+          type: integer
+        name: status
+        type: array
+      - collectionFormat: csv
+        description: List environments(endpoints) of this type
+        in: query
+        items:
+          type: integer
+        name: types
+        type: array
+      - collectionFormat: csv
+        description: search environments(endpoints) with these tags (depends on tagsPartialMatch)
+        in: query
+        items:
+          type: integer
+        name: tagIds
+        type: array
+      - description: If true, will return environment(endpoint) which has one of tagIds,
+          if false (or missing) will return only environments(endpoints) that has
+          all the tags
+        in: query
+        name: tagsPartialMatch
+        type: boolean
+      - collectionFormat: csv
+        description: will return only these environments(endpoints)
+        in: query
+        items:
+          type: integer
+        name: endpointIds
+        type: array
+      - collectionFormat: csv
+        description: will exclude these environments(endpoints)
+        in: query
+        items:
+          type: integer
+        name: excludeIds
+        type: array
+      - description: If true, will return environment(endpoint) that were provisioned
+        in: query
+        name: provisioned
+        type: boolean
+      - collectionFormat: csv
+        description: will return only environments with on of these agent versions
+        in: query
+        items:
+          type: string
+        name: agentVersions
+        type: array
+      - description: if exists true show only edge async agents, false show only standard
+          edge agents. if missing, will show both types (relevant only for edge agents)
+        in: query
+        name: edgeAsync
+        type: boolean
+      - description: if true, show only untrusted edge agents, if false show only
+          trusted edge agents (relevant only for edge agents)
+        in: query
+        name: edgeDeviceUntrusted
+        type: boolean
+      - description: if bigger then zero, show only edge agents that checked-in in
+          the last provided seconds (relevant only for edge agents)
+        in: query
+        name: edgeCheckInPassedSeconds
+        type: number
+      - description: if true, the snapshot data won't be retrieved
+        in: query
+        name: excludeSnapshots
+        type: boolean
+      - description: will return only environments(endpoints) with this name
+        in: query
+        name: name
+        type: string
+      - description: only applied when edgeStackId exists. Filter the returned environments
+          based on their deployment status in the stack (not the environment status!)
+        in: query
+        name: edgeStackStatus
+        type: string
+      - collectionFormat: csv
+        description: List environments(endpoints) of these edge groups
+        in: query
+        items:
+          type: integer
+        name: edgeGroupIds
+        type: array
+      - collectionFormat: csv
+        description: Exclude environments(endpoints) of these edge groups
+        in: query
+        items:
+          type: integer
+        name: excludeEdgeGroupIds
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Endpoints
+          schema:
+            items:
+              $ref: '#/definitions/portainer.Endpoint'
+            type: array
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: List environments(endpoints)
+      tags:
+      - endpoints
+  /stacks:
+    get:
+      description: |-
+        List all stacks based on the current user authorizations.
+        Will return all stacks if using an administrator account otherwise it
+        will only return the list of stacks the user have access to.
+        Limited stacks will not be returned by this endpoint.
+        **Access policy**: authenticated
+      operationId: StackList
+      parameters:
+      - description: 'Filters to process on the stack list. Encoded as JSON (a map[string]string).
+          For example, {''SwarmID'': ''jpofkc0i9uo9wtx1zesuk649w''} will only return
+          stacks that are part of the specified Swarm cluster. Available filters:
+          EndpointID, SwarmID.'
+        in: query
+        name: filters
+        type: string
+      responses:
+        "200":
+          description: Success
+          schema:
+            items:
+              $ref: '#/definitions/portainer.Stack'
+            type: array
+        "204":
+          description: Success
+        "400":
+          description: Invalid request
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: List stacks
+      tags:
+      - stacks
+  /stacks/{id}:
+    delete:
+      description: |-
+        Remove a stack.
+        **Access policy**: restricted
+      operationId: StackDelete
+      parameters:
+      - description: Stack identifier
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Set to true to delete an external stack. Only external Swarm
+          stacks are supported
+        in: query
+        name: external
+        type: boolean
+      - description: Environment identifier
+        in: query
+        name: endpointId
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Success
+        "400":
+          description: Invalid request
+        "403":
+          description: Permission denied
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Remove a stack
+      tags:
+      - stacks
+    get:
+      description: |-
+        Retrieve details about a stack.
+        **Access policy**: restricted
+      operationId: StackInspect
+      parameters:
+      - description: Stack identifier
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/portainer.Stack'
+        "400":
+          description: Invalid request
+        "403":
+          description: Permission denied
+        "404":
+          description: Stack not found
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Inspect a stack
+      tags:
+      - stacks
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Update a stack, only for file based stacks.
+        **Access policy**: authenticated
+      operationId: StackUpdate
+      parameters:
+      - description: Stack identifier
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Environment identifier
+        in: query
+        name: endpointId
+        required: true
+        type: integer
+      - description: Stack details
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/stacks.updateSwarmStackPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/portainer.Stack'
+        "400":
+          description: Invalid request
+        "403":
+          description: Permission denied
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Update a stack
+      tags:
+      - stacks
+  /stacks/{id}/start:
+    post:
+      description: |-
+        Starts a stopped Stack.
+        **Access policy**: authenticated
+      operationId: StackStart
+      parameters:
+      - description: Stack identifier
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Environment identifier
+        in: query
+        name: endpointId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/portainer.Stack'
+        "400":
+          description: Invalid request
+        "403":
+          description: Permission denied
+        "404":
+          description: Not found
+        "409":
+          description: Stack name is not unique
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Starts a stopped Stack
+      tags:
+      - stacks
+  /stacks/{id}/stop:
+    post:
+      description: |-
+        Stops a stopped Stack.
+        **Access policy**: authenticated
+      operationId: StackStop
+      parameters:
+      - description: Stack identifier
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Environment identifier
+        in: query
+        name: endpointId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/portainer.Stack'
+        "400":
+          description: Invalid request
+        "403":
+          description: Permission denied
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Stops a stopped Stack
+      tags:
+      - stacks
+  /stacks/name/{name}:
+    delete:
+      description: |-
+        Remove a stack.
+        **Access policy**: restricted
+      operationId: StackDeleteKubernetesByName
+      parameters:
+      - description: Stack name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Set to true to delete an external stack. Only external Swarm
+          stacks are supported
+        in: query
+        name: external
+        type: boolean
+      - description: Environment identifier
+        in: query
+        name: endpointId
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Success
+        "400":
+          description: Invalid request
+        "403":
+          description: Permission denied
+        "404":
+          description: Not found
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Remove Kubernetes stacks by name
+      tags:
+      - stacks
+    get:
+      consumes:
+      - application/json
+      description: |-
+        The request will be upgraded to the websocket protocol.
+        **Access policy**: authenticated
+      parameters:
+      - description: environment(endpoint) ID of the environment(endpoint) where the
+          resource is located
+        in: query
+        name: endpointId
+        required: true
+        type: integer
+      - description: namespace where the container is located
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: name of the pod containing the container
+        in: query
+        name: podName
+        required: true
+        type: string
+      - description: name of the container
+        in: query
+        name: containerName
+        required: true
+        type: string
+      - description: command to execute in the container
+        in: query
+        name: command
+        required: true
+        type: string
+      - description: JWT token used for authentication against this environment(endpoint)
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+        "403":
+          description: Forbidden
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Execute a websocket on pod
+      tags:
+      - websocket
+  /stacks/{id}/file:
+    get:
+      description: |-
+        Get Stack file content.
+        **Access policy**: restricted
+      operationId: StackFileInspect
+      parameters:
+      - description: Stack identifier
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/stacks.stackFileResponse'
+        "400":
+          description: Invalid request
+        "403":
+          description: Permission denied
+        "404":
+          description: Stack not found
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Retrieve the content of the Stack file for the specified stack
+      tags:
+      - stacks
+  /stacks/create/standalone/string:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Deploy a new stack into a Docker environment specified via the environment identifier.
+        **Access policy**: authenticated
+      operationId: StackCreateDockerStandaloneString
+      parameters:
+      - description: stack config
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/stacks.composeStackFromFileContentPayload'
+      - description: Identifier of the environment that will be used to deploy the
+          stack
+        in: query
+        name: endpointId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/portainer.Stack'
+        "400":
+          description: Invalid request
+        "500":
+          description: Server error
+      security:
+      - ApiKeyAuth: []
+      - jwt: []
+      summary: Deploy a new compose stack from a text
+      tags:
+      - stacks
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-KEY
+    type: apiKey
+  jwt:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
