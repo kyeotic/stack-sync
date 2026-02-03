@@ -14,7 +14,7 @@ const RESET: &str = "\x1b[0m";
 
 pub fn sync_dry_run(config: &Config, client: &PortainerClient) -> Result<()> {
     println!(
-        "{BOLD}{CYAN}[dry-run]{RESET} Previewing sync for stack '{BOLD}{}{RESET}'",
+        "\n{BOLD}{CYAN}[dry-run]{RESET} Previewing sync for stack '{BOLD}{}{RESET}'",
         config.name
     );
 
@@ -65,10 +65,7 @@ pub fn sync_dry_run(config: &Config, client: &PortainerClient) -> Result<()> {
     }
 
     if !env_vars.is_empty() {
-        println!("{BOLD}{CYAN}[dry-run]{RESET} Environment variables:");
-        for var in &env_vars {
-            println!("  {GREEN}{}{RESET}={DIM}{}{RESET}", var.name, var.value);
-        }
+        println!("{BOLD}{CYAN}[dry-run]{RESET} ENV defined");
     }
 
     println!("{BOLD}{CYAN}[dry-run]{RESET} No changes were made.");
@@ -88,6 +85,11 @@ pub fn sync(config: &Config, client: &PortainerClient) -> Result<()> {
 
     match client.find_stack_by_name(&config.name)? {
         Some(existing) => {
+            let remote_compose = client.get_stack_file(existing.id)?;
+            if remote_compose == compose_content && existing.env == env_vars {
+                println!("Stack '{}' is already in sync.", config.name);
+                return Ok(());
+            }
             println!("Updating stack '{}'...", config.name);
             let stack =
                 client.update_stack(existing.id, config.endpoint_id, &compose_content, env_vars)?;

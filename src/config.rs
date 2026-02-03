@@ -28,7 +28,7 @@ pub struct Config {
     pub base_dir: PathBuf,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnvVar {
     pub name: String,
     pub value: String,
@@ -36,6 +36,35 @@ pub struct EnvVar {
 
 fn default_endpoint_id() -> u64 {
     2
+}
+
+/// Find a config file by checking common names in the given directory
+pub fn find_config_file(base_path: &Path) -> Result<PathBuf> {
+    // If the path is a file, use it directly
+    if base_path.is_file() {
+        return Ok(base_path.to_path_buf());
+    }
+    
+    // Otherwise treat it as a directory and check for config files
+    let dir = if base_path.is_dir() {
+        base_path
+    } else {
+        base_path.parent().unwrap_or(Path::new("."))
+    };
+    
+    // Check for .stack-sync.toml first (hidden), then stack-sync.toml
+    let dotfile = dir.join(".stack-sync.toml");
+    if dotfile.exists() {
+        return Ok(dotfile);
+    }
+    
+    let regular = dir.join("stack-sync.toml");
+    if regular.exists() {
+        return Ok(regular);
+    }
+    
+    // If neither exists, return the regular name as default (for error messages)
+    Ok(regular)
 }
 
 impl ConfigFile {
@@ -276,4 +305,57 @@ compose_file = "b.yaml"
         names.sort();
         assert_eq!(names, vec!["alpha", "beta"]);
     }
-}
+
+    #[test]
+    fn test_find_config_file_dotfile_priority() {
+        let dir = std::env::temp_dir().join("stack-sync-find-test");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Create both config files
+        let dotfile = dir.join(".stack-sync.toml");
+        let regular = dir.join("stack-sync.toml");
+        std::fs::write(&dotfile, "# dotfile").unwrap();
+        std::fs::write(&regular, "# regular").unwrap();
+
+        // Should prefer the dotfile
+        let found = find_config_file(&dir).unwrap();
+        assert_eq!(found, dotfile);
+
+        std::fs::remove_file(&dotfile).ok();
+        std::fs::remove_file(&regular).ok();
+        std::fs::remove_dir(&dir).ok();
+    }
+
+    #[test]
+    fn test_find_config_file_fallback_to_regular() {
+        let dir = std::env::temp_dir().join("stack-sync-find-test2");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Create only the regular file
+        let regular = dir.join("stack-sync.toml");
+        std::fs::write(&regular, "# regular").unwrap();
+
+        // Should find the regular file
+        let found = find_config_file(&dir).unwrap();
+        assert_eq!(found, regular);
+
+        std::fs::remove_file(&regular).ok();
+        std::fs::remove_dir(&dir).ok();
+    }
+
+    #[test]
+    fn test_find_config_file_direct_path() {
+        let dir = std::env::temp_dir().join("stack-sync-find-test3");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Create a custom-named file
+        let custom = dir.join("my-custom-config.toml");
+        std::fs::write(&custom, "# custom").unwrap();
+
+        // Should return the exact path when it's a file
+        let found = find_config_file(&custom).unwrap();
+        assert_eq!(found, custom);
+
+        std::fs::remove_file(&custom).ok();
+        std::fs::remove_dir(&dir).ok();
+    }}

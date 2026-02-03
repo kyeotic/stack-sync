@@ -27,7 +27,7 @@ The key is sent as an `X-API-KEY` header. The Portainer endpoint ID is resolved 
 
 ## Quick Start
 
-1. Create a `stack-sync.toml` config file in your project directory:
+1. Create a `.stack-sync.toml` (or `stack-sync.toml`) config file in your project directory:
 
 ```toml
 host = "https://portainer.example.com"
@@ -43,14 +43,14 @@ env_file = "other/.env"
 endpoint_id = 3  # optional per-stack override
 ```
 
-| Field              | Description                                       | Required |
-| ------------------ | ------------------------------------------------- | -------- |
-| `host`             | Portainer instance URL                            | Yes      |
-| `endpoint_id`      | Default Portainer environment/endpoint ID         | No       |
-| `stacks.<name>`    | Stack definition — the key is the stack name      | Yes      |
-| `compose_file`     | Path to the local Docker Compose file             | Yes      |
-| `env_file`         | Path to the local `.env` file for stack variables | No       |
-| `endpoint_id` (per-stack) | Override the top-level endpoint ID         | No       |
+| Field                     | Description                                       | Required |
+| ------------------------- | ------------------------------------------------- | -------- |
+| `host`                    | Portainer instance URL                            | Yes      |
+| `endpoint_id`             | Default Portainer environment/endpoint ID         | No       |
+| `stacks.<name>`           | Stack definition — the key is the stack name      | Yes      |
+| `compose_file`            | Path to the local Docker Compose file             | Yes      |
+| `env_file`                | Path to the local `.env` file for stack variables | No       |
+| `endpoint_id` (per-stack) | Override the top-level endpoint ID                | No       |
 
 2. Deploy the stack:
 
@@ -79,7 +79,7 @@ stack-sync sync my-stack --dry-run         # preview changes
 stack-sync sync -C /path/to/config.toml    # use a different config file
 ```
 
-The config path defaults to `stack-sync.toml` in the current directory. File paths in the config (`compose_file`, `env_file`) are resolved relative to the config file's directory, not the working directory.
+The config path defaults to the current directory, where it will automatically look for `.stack-sync.toml` first, then `stack-sync.toml`. File paths in the config (`compose_file`, `env_file`) are resolved relative to the config file's directory, not the working directory.
 
 ### view
 
@@ -93,7 +93,7 @@ stack-sync view -C /path/to/config.toml    # use a different config file
 
 ### pull
 
-Download a stack's compose file and environment variables from Portainer to local files. This command does not require a `stack-sync.toml` config file.
+Download a stack's compose file and environment variables from Portainer to local files. This command does not require a config file.
 
 ```bash
 stack-sync pull \

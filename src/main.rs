@@ -25,7 +25,7 @@ enum Commands {
         /// Stack names to deploy (default: all stacks)
         stacks: Vec<String>,
         /// Path to the config file
-        #[arg(short = 'C', long, default_value = "stack-sync.toml")]
+        #[arg(short = 'C', long, default_value = ".")]
         config: String,
         /// Preview what would happen without making changes
         #[arg(long)]
@@ -36,7 +36,7 @@ enum Commands {
         /// Stack names to show (default: all stacks)
         stacks: Vec<String>,
         /// Path to the config file
-        #[arg(short = 'C', long, default_value = "stack-sync.toml")]
+        #[arg(short = 'C', long, default_value = ".")]
         config: String,
     },
     /// Pull a stack's compose file and env vars from Portainer
@@ -67,8 +67,9 @@ fn get_api_key() -> Result<String> {
 
 fn resolve_stacks(config_path: &str, filter: &[String]) -> Result<Vec<config::Config>> {
     let path = Path::new(config_path);
-    let config_file = config::ConfigFile::load(path)?;
-    let base_dir = config::ConfigFile::base_dir(path)?;
+    let resolved_path = config::find_config_file(path)?;
+    let config_file = config::ConfigFile::load(&resolved_path)?;
+    let base_dir = config::ConfigFile::base_dir(&resolved_path)?;
 
     let names: Vec<String> = if filter.is_empty() {
         let mut names: Vec<String> = config_file
