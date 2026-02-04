@@ -1,5 +1,5 @@
 class StackSync < Formula
-  desc "A CLI tool for managing stacks"
+  desc "A CLI tool for managing portainer stacks"
   homepage "https://github.com/kyeotic/stack-sync"
   version "${VERSION}"
 
