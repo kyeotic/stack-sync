@@ -12,7 +12,7 @@ Deploy and manage [Portainer](https://www.portainer.io/) stacks from the command
 ### With Homebrew (tap)
 
 ```
-brew install kyeotic/homebrew-stack-sync/stack-sync
+brew install kyeotic/tap/stack-sync
 ```
 
 ### One-line Shell

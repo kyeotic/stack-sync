@@ -71,7 +71,7 @@ jobs:
           envsubst '$VERSION $ARM_MAC_SHA $INTEL_MAC_SHA $LINUX_SHA' < .github/templates/homebrew-formula.rb > stack-sync.rb
 
           # 3. Clone and update the tap repo
-          git clone https://x-access-token:${GH_TOKEN}@github.com/kyeotic/homebrew-stack-sync.git tap
+          git clone https://x-access-token:${GH_TOKEN}@github.com/kyeotic/homebrew-tap.git tap
           mkdir -p tap/Formula
           mv stack-sync.rb tap/Formula/stack-sync.rb
 
