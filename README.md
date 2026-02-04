@@ -15,23 +15,14 @@ curl -fsSL https://raw.githubusercontent.com/kyeotic/stack-sync/main/install.sh 
 
 Or download a binary from the [releases page](https://github.com/kyeotic/stack-sync/releases).
 
-## Authentication
-
-stack-sync reads the `PORTAINER_API_KEY` environment variable for all API requests. Set it in your shell:
-
-```bash
-export PORTAINER_API_KEY=your-api-key-here
-```
-
-The key is sent as an `X-API-KEY` header. The Portainer endpoint ID is resolved automatically.
-
 ## Quick Start
 
-1. Create a `.stack-sync.toml` (or `stack-sync.toml`) config file in your project directory:
+1. Create a `.stack-sync.toml` config file in your project directory:
 
 ```toml
 host = "https://portainer.example.com"
 endpoint_id = 2  # optional, default 2
+portainer_api_key = "Your_Key"
 
 [stacks.my-stack]
 compose_file = "compose.yaml"
@@ -64,6 +55,22 @@ This creates or updates all stacks defined in the config. To target specific sta
 stack-sync sync my-stack
 stack-sync sync my-stack other-stack
 ```
+
+## Splitting Configuration
+
+Since creating a config file in your repo with secrets like the `portainer_api_key` is a bad practice, and since your also likely to share the `host` with several projects, stack-sync supports config inheritance.
+
+These fields: `host`, `portainer_api_key` and `endpoint_id`, can be provided by a `.stack-sync.toml` in any parent directory up to and including your `$HOME` directory. This allows config to be stored outside the working directory.
+
+Alternatively you can provide a `PORTAINER_API_KEY` as an ENV VAR (e.g. sourced from a .env file by [dir-env](https://direnv.net/)) and not put it any config files.
+
+The order of precedence is
+
+- `$PORTAINER_API_KEY` ENV VAR
+- current config (or config provided by `--config`)
+- The next parent directory
+
+Configs can also be merged: if the parent directory config contains an `endpoint_id` and the `$HOME` directory config contains a `host` they will form a complete configuration,
 
 ## Commands
 
@@ -125,11 +132,11 @@ stack-sync import my-stack --force            # overwrite existing files
 stack-sync import my-stack -C /path/to/dir    # use a different config directory
 ```
 
-| Argument    | Description                         | Required |
-| ----------- | ----------------------------------- | -------- |
-| `<stack>`   | Name of the stack in Portainer      | Yes      |
-| `-C`        | Path to config file or directory    | No       |
-| `--force`   | Overwrite existing files            | No       |
+| Argument  | Description                      | Required |
+| --------- | -------------------------------- | -------- |
+| `<stack>` | Name of the stack in Portainer   | Yes      |
+| `-C`      | Path to config file or directory | No       |
+| `--force` | Overwrite existing files         | No       |
 
 Creates `{stack}.compose.yaml` and `{stack}.env` files, and adds a `[stacks.{stack}]` entry to the local config.
 
@@ -143,11 +150,11 @@ stack-sync redeploy my-stack --dry-run         # preview what would happen
 stack-sync redeploy my-stack -C /path/to/dir   # use a different config directory
 ```
 
-| Argument    | Description                         | Required |
-| ----------- | ----------------------------------- | -------- |
-| `<stack>`   | Name of the stack to redeploy       | Yes      |
-| `-C`        | Path to config file or directory    | No       |
-| `--dry-run` | Preview without making changes      | No       |
+| Argument    | Description                      | Required |
+| ----------- | -------------------------------- | -------- |
+| `<stack>`   | Name of the stack to redeploy    | Yes      |
+| `-C`        | Path to config file or directory | No       |
+| `--dry-run` | Preview without making changes   | No       |
 
 The stack must exist in both the local config and in Portainer.
 
