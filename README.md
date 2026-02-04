@@ -7,7 +7,15 @@ Deploy and manage [Portainer](https://www.portainer.io/) stacks from the command
 - A Portainer instance with API access enabled
 - A `PORTAINER_API_KEY` (create one in Portainer under **User Settings > Access Tokens**)
 
-## Install
+## Installation
+
+### With Homebrew (tap)
+
+```
+brew install kyeotic/homebrew-stack-sync/stack-sync
+```
+
+### One-line Shell
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kyeotic/stack-sync/main/install.sh | bash
