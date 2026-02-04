@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.3] - 2026-02-03
+
+### Added
+- Homebrew tap release
+
 ## [0.3.2] - 2026-02-03
 
 ### Added

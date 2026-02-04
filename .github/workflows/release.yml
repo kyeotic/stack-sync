@@ -49,3 +49,28 @@ jobs:
         with:
           files: "*.tar.gz"
           generate_release_notes: true
+      - name: Update Homebrew Tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_REPO_TOKEN }}
+        run: |
+          # 1. Prepare variables for the template
+          export ARM_MAC_SHA=$(sha256sum stack-sync-aarch64-apple-darwin.tar.gz | awk '{print $1}')
+          export INTEL_MAC_SHA=$(sha256sum stack-sync-x86_64-apple-darwin.tar.gz | awk '{print $1}')
+          export LINUX_SHA=$(sha256sum stack-sync-x86_64-unknown-linux-musl.tar.gz | awk '{print $1}')
+          export VERSION=${GITHUB_REF#refs/tags/v}
+
+          # 2. Inject variables into the template file
+          envsubst < .github/templates/stack-sync.rb.template > stack-sync.rb
+
+          # 3. Clone and update the tap repo
+          git clone https://x-access-token:${GH_TOKEN}@github.com/kyeotic/homebrew-stack-sync.git tap
+          mkdir -p tap/Formula
+          mv stack-sync.rb tap/Formula/stack-sync.rb
+
+          # 4. Commit and push
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/stack-sync.rb
+          git commit -m "Update stack-sync to v${VERSION}"
+          git push
