@@ -42,6 +42,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
@@ -59,8 +60,15 @@ jobs:
           export LINUX_SHA=$(sha256sum stack-sync-x86_64-unknown-linux-musl.tar.gz | awk '{print $1}')
           export VERSION=${GITHUB_REF#refs/tags/v}
 
+          # 2. Print them to the GitHub Action log for debugging
+          echo "Version: $VERSION"
+          echo "ARM SHA: $ARM_MAC_SHA"
+          echo "Intel SHA: $INTEL_MAC_SHA"
+          echo "Linux SHA: $LINUX_SHA"
+
           # 2. Inject variables into the template file
-          envsubst < .github/templates/stack-sync.rb.template > stack-sync.rb
+          #envsubst < .github/templates/homebrew-formula.rb > stack-sync.rb
+          envsubst '$VERSION $ARM_MAC_SHA $INTEL_MAC_SHA $LINUX_SHA' < .github/templates/homebrew-formula.rb > stack-sync.rb
 
           # 3. Clone and update the tap repo
           git clone https://x-access-token:${GH_TOKEN}@github.com/kyeotic/homebrew-stack-sync.git tap
