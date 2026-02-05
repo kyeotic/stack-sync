@@ -1,25 +1,19 @@
+use anyhow::{Context, Ok, Result};
+use clap::Parser;
+use std::path::Path;
+
+use crate::stacks::resolve_stacks;
+
 mod commands;
 mod config;
 mod portainer;
+mod stacks;
+mod styles;
 mod update;
 
-use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
-use std::path::Path;
-
 #[derive(Parser)]
-#[command(
-    name = "stack-sync",
-    version,
-    about = "Deploy and manage Portainer stacks"
-)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
+#[command(name = "stack-sync", about = "Deploy and manage Portainer stacks")]
+enum Cli {
     /// Create or update a stack in Portainer
     Sync {
         /// Stack names to deploy (default: all stacks)
@@ -81,54 +75,20 @@ enum Commands {
     },
     /// Upgrade to the latest version
     Upgrade,
-}
-
-fn resolve_stacks(config_path: &str, filter: &[String]) -> Result<(String, Vec<config::Config>)> {
-    let path = Path::new(config_path);
-    let (global_config, local_config, config_path) = config::resolve_config_chain(path)?;
-    let base_dir = config_path.parent().unwrap_or(Path::new(".")).to_path_buf();
-
-    let names: Vec<String> = if filter.is_empty() {
-        let mut names: Vec<String> = local_config
-            .stack_names()
-            .into_iter()
-            .map(String::from)
-            .collect();
-        names.sort();
-        names
-    } else {
-        filter.to_vec()
-    };
-
-    let configs: Result<Vec<config::Config>> = names
-        .iter()
-        .map(|name| local_config.resolve(name, &global_config, &base_dir))
-        .collect();
-
-    Ok((global_config.api_key, configs?))
+    /// Print version information
+    Version,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::Sync {
+    match cli {
+        Cli::Sync {
             stacks,
             config: config_path,
             dry_run,
-        } => {
-            let (api_key, configs) = resolve_stacks(&config_path, &stacks)?;
-            for config in &configs {
-                let client = portainer::PortainerClient::new(&config.host, &api_key);
-                if dry_run {
-                    commands::sync_dry_run(config, &client)?;
-                } else {
-                    commands::sync(config, &client)?;
-                }
-            }
-            Ok(())
-        }
-        Commands::View {
+        } => commands::sync_command(&config_path, &stacks, dry_run)?,
+        Cli::View {
             stacks,
             config: config_path,
         } => {
@@ -137,9 +97,8 @@ fn main() -> Result<()> {
                 let client = portainer::PortainerClient::new(&config.host, &api_key);
                 commands::view(config, &client)?;
             }
-            Ok(())
         }
-        Commands::Import {
+        Cli::Import {
             stack,
             config: config_path,
             force,
@@ -158,9 +117,9 @@ fn main() -> Result<()> {
                 &global_config.api_key,
                 &global_config.host,
                 force,
-            )
+            )?
         }
-        Commands::Init {
+        Cli::Init {
             portainer_api_key,
             host,
             endpoint_id,
@@ -179,9 +138,9 @@ fn main() -> Result<()> {
                 &host,
                 endpoint_id,
                 force,
-            )
+            )?
         }
-        Commands::Redeploy {
+        Cli::Redeploy {
             stack,
             config: config_path,
             dry_run,
@@ -194,8 +153,10 @@ fn main() -> Result<()> {
             } else {
                 commands::redeploy(config, &client)?;
             }
-            Ok(())
         }
-        Commands::Upgrade => update::upgrade(),
+        Cli::Upgrade => update::upgrade()?,
+        Cli::Version => println!("stack-sync {}", env!("CARGO_PKG_VERSION")),
     }
+
+    return Ok(());
 }

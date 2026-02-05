@@ -14,6 +14,7 @@ ureq = { version = "3", features = ["json"] }
 self-replace = "1"
 flate2 = "1"
 tar = "0.4"
+owo-colors = { version = "4.2.3", features = ["supports-colors"] }
 
 [profile.release]
 strip = true
