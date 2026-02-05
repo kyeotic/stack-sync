@@ -1,30 +1,57 @@
+use console::{Alignment, pad_str};
 use owo_colors::{OwoColorize, Style};
 use std::fmt::Display;
 
-pub trait AppStyles: OwoColorize + Sized + ToString {
-    fn updated(&self) -> owo_colors::Styled<&Self> {
-        self.style(Style::new().green().bold())
+impl<T: Display> AnsiPadding for T {}
+
+/// Application-specific styles with automatic terminal color support detection
+pub trait AppStyles: OwoColorize + Sized + Display {
+    fn updated(&self) -> String {
+        self.style_if_supported(Style::new().green().bold())
     }
 
-    fn up_to_date(&self) -> owo_colors::Styled<&Self> {
-        self.style(Style::new().cyan().bold())
+    fn up_to_date(&self) -> String {
+        self.style_if_supported(Style::new().cyan().bold())
     }
 
-    fn would_update(&self) -> owo_colors::Styled<&Self> {
-        self.style(Style::new().yellow().bold())
+    fn waiting(&self) -> String {
+        self.style_if_supported(Style::new().blue().bold())
     }
 
-    fn dry_run(&self) -> String {
-        self.style_preserving_indent(Style::new().blue().on_white().bold())
+    fn would_update(&self) -> String {
+        self.style_if_supported(Style::new().yellow().bold())
     }
 
-    /// Applies a style only to content after leading whitespace
-    fn style_preserving_indent(&self, style: Style) -> String {
-        let s = self.to_string();
-        let trimmed = s.trim_start();
-        let leading_ws = &s[..s.len() - trimmed.len()];
-        format!("{}{}", leading_ws, trimmed.style(style))
+    fn field_label(&self) -> String {
+        self.style_if_supported(Style::new().bold())
+    }
+
+    /// Applies a style unless NO_COLOR env var is set
+    fn style_if_supported(&self, style: Style) -> String {
+        // The built in self.if_supports_color breaks in bacon
+        if std::env::var("NO_COLOR").is_ok() {
+            self.to_string()
+        } else {
+            self.style(style).to_string()
+        }
     }
 }
 
 impl<T> AppStyles for T where T: Display {}
+
+/// ANSI-aware padding that ignores escape sequences when calculating width
+pub trait AnsiPadding: Display {
+    fn align_right(self, width: usize) -> String
+    where
+        Self: Sized,
+    {
+        pad_str(&self.to_string(), width, Alignment::Right, None).into_owned()
+    }
+
+    // fn align_left(self, width: usize) -> String
+    // where
+    //     Self: Sized,
+    // {
+    //     pad_str(&self.to_string(), width, Alignment::Left, None).into_owned()
+    // }
+}

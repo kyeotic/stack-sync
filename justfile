@@ -25,5 +25,8 @@ fmt-check:
 release *args:
     cargo release {{ args }}
 
+style-watch:
+    bacon test -- -- --show-output style_gallery
+
 install-local:
     cargo install --path .
