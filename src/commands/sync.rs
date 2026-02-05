@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use std::path::Path;
+// use std::path::Path;
 
 use crate::config::{self, Config};
 use crate::portainer::{self, PortainerClient};
@@ -14,6 +14,25 @@ const YELLOW: &str = "\x1b[33m";
 const CYAN: &str = "\x1b[36m";
 const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
+
+#[cfg(test)]
+mod tests {
+    use crate::styles::AppStyles;
+
+    #[test]
+    fn it_works() {
+        let name = "something important";
+        println!(
+            "\n {:>12} Would update {}",
+            "[dry-run]".would_update(),
+            name
+        );
+        println!("\n {:>12} Updated {}", "[dry-run]".updated(), name);
+        println!("\n {:>12} Up to date {}", "[dry-run]".up_to_date(), name);
+
+        println!("\n {:>12} dry run {}", "[dry-run]".dry_run(), name);
+    }
+}
 
 pub fn sync_command(config_path: &str, stacks: &[String], dry_run: bool) -> Result<()> {
     let (api_key, configs) = resolve_stacks(&config_path, stacks)?;

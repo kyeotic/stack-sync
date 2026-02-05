@@ -6,10 +6,10 @@ use crate::portainer::PortainerClient;
 
 // ANSI color helpers
 const BOLD: &str = "\x1b[1m";
-const GREEN: &str = "\x1b[32m";
+// const GREEN: &str = "\x1b[32m";
 const YELLOW: &str = "\x1b[33m";
 const CYAN: &str = "\x1b[36m";
-const DIM: &str = "\x1b[2m";
+// const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 
 mod sync;
