@@ -4,28 +4,35 @@ use crate::config::{Config, resolve_stacks};
 use crate::portainer::{self, PortainerClient};
 use crate::reporter::Reporter;
 
-pub fn redeploy_command(config_path: &str, stack: &str, dry_run: bool) -> Result<()> {
+pub fn redeploy_command(
+    config_path: &str,
+    stack: &str,
+    dry_run: bool,
+    verbose: bool,
+) -> Result<()> {
     let (api_key, configs) = resolve_stacks(config_path, &[stack.to_string()])?;
     let config = &configs[0];
     let client = portainer::PortainerClient::new(&config.host, &api_key);
     if dry_run {
-        redeploy_dry_run(config, &client)
+        redeploy_dry_run(config, &client, verbose)
     } else {
         redeploy(config, &client)
     }
 }
 
-fn redeploy_dry_run(config: &Config, client: &PortainerClient) -> Result<()> {
+fn redeploy_dry_run(config: &Config, client: &PortainerClient, verbose: bool) -> Result<()> {
     match client.find_stack_by_name(&config.name)? {
         Some(stack) => {
             Reporter::would_redeploy(&config.name);
-            Reporter::stack_details(
-                &config.host,
-                &config.compose_file,
-                0,
-                None,
-                stack.endpoint_id,
-            );
+            if verbose {
+                Reporter::stack_details(
+                    &config.host,
+                    &config.compose_file,
+                    0,
+                    None,
+                    stack.endpoint_id,
+                );
+            }
         }
         None => {
             Reporter::not_found(&config.name);

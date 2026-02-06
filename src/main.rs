@@ -21,6 +21,9 @@ enum Cli {
         /// Preview what would happen without making changes
         #[arg(long)]
         dry_run: bool,
+        /// Show detailed stack information
+        #[arg(short = 'V', long)]
+        verbose: bool,
     },
     /// Show the state of a stack in Portainer
     View {
@@ -29,6 +32,9 @@ enum Cli {
         /// Path to the config file
         #[arg(short = 'C', long, default_value = ".")]
         config: String,
+        /// Show detailed stack information
+        #[arg(short = 'V', long)]
+        verbose: bool,
     },
     /// Import a stack from Portainer into the local config
     Import {
@@ -69,6 +75,9 @@ enum Cli {
         /// Preview what would happen without making changes
         #[arg(long)]
         dry_run: bool,
+        /// Show detailed stack information
+        #[arg(short = 'V', long)]
+        verbose: bool,
     },
     /// Upgrade to the latest version
     Upgrade,
@@ -84,8 +93,13 @@ fn main() -> Result<()> {
             stacks,
             config,
             dry_run,
-        } => commands::sync_command(&config, &stacks, dry_run)?,
-        Cli::View { stacks, config } => commands::view_command(&config, &stacks)?,
+            verbose,
+        } => commands::sync_command(&config, &stacks, dry_run, verbose)?,
+        Cli::View {
+            stacks,
+            config,
+            verbose,
+        } => commands::view_command(&config, &stacks, verbose)?,
         Cli::Import {
             stack,
             config,
@@ -108,7 +122,8 @@ fn main() -> Result<()> {
             stack,
             config,
             dry_run,
-        } => commands::redeploy_command(&config, &stack, dry_run)?,
+            verbose,
+        } => commands::redeploy_command(&config, &stack, dry_run, verbose)?,
         Cli::Upgrade => update::upgrade()?,
         Cli::Version => println!("stack-sync {}", env!("CARGO_PKG_VERSION")),
     }

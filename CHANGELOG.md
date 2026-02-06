@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.5] - 2026-02-05
+
+### Added
+- `--verbose`/`-V` flag for `sync`, `redeploy`, and `view` commands
+- Detail lines (Host, Compose file, Env file, Endpoint ID, etc.) are now hidden by default and shown with `--verbose`
+
 ## [0.3.4] - 2026-02-05
 
 ### Changed

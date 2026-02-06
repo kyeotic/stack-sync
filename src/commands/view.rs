@@ -2,17 +2,18 @@ use anyhow::{Context, Result};
 
 use crate::config::{Config, resolve_stacks};
 use crate::portainer::{self, PortainerClient};
+use crate::reporter::Reporter;
 
-pub fn view_command(config_path: &str, stacks: &[String]) -> Result<()> {
+pub fn view_command(config_path: &str, stacks: &[String], verbose: bool) -> Result<()> {
     let (api_key, configs) = resolve_stacks(config_path, stacks)?;
     for config in &configs {
         let client = portainer::PortainerClient::new(&config.host, &api_key);
-        view(config, &client)?;
+        view(config, &client, verbose)?;
     }
     Ok(())
 }
 
-fn view(config: &Config, client: &PortainerClient) -> Result<()> {
+fn view(config: &Config, client: &PortainerClient, verbose: bool) -> Result<()> {
     let stack = client
         .find_stack_by_name(&config.name)?
         .context(format!("Stack '{}' not found", config.name))?;
@@ -22,25 +23,26 @@ fn view(config: &Config, client: &PortainerClient) -> Result<()> {
         2 => "inactive",
         _ => "unknown",
     };
-    let stack_type = match stack.stack_type {
-        1 => "Swarm",
-        2 => "Compose",
-        3 => "Kubernetes",
-        _ => "unknown",
-    };
 
-    println!("Name:       {}", stack.name);
-    println!("Id:         {}", stack.id);
-    println!("Type:       {}", stack_type);
-    println!("Status:     {}", status);
-    println!("Endpoint:   {}", stack.endpoint_id);
-    println!("Created by: {}", stack.created_by);
-    println!("Created:    {}", format_timestamp(stack.creation_date));
-    println!("Updated by: {}", stack.updated_by);
-    println!("Updated:    {}", format_timestamp(stack.update_date));
+    Reporter::view(&stack.name, stack.id, status);
 
-    if !stack.env.is_empty() {
-        println!("Env vars:   {}", stack.env.len());
+    if verbose {
+        let stack_type = match stack.stack_type {
+            1 => "Swarm",
+            2 => "Compose",
+            3 => "Kubernetes",
+            _ => "unknown",
+        };
+
+        Reporter::view_details(
+            stack_type,
+            stack.endpoint_id,
+            &stack.created_by,
+            format_timestamp(stack.creation_date),
+            &stack.updated_by,
+            format_timestamp(stack.update_date),
+            stack.env.len(),
+        );
     }
 
     Ok(())

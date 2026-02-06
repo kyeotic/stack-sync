@@ -104,6 +104,16 @@ impl Reporter {
         );
     }
 
+    pub fn view(name: &str, id: impl Display, status: &str) {
+        println!(
+            " {} {} {} {}",
+            "View".up_to_date().align_right(12),
+            Self::bold(name),
+            format!("(id: {})", id).dimmed(),
+            status.dimmed()
+        );
+    }
+
     // --- detail block ---
 
     const FIELD_LABEL_WIDTH: usize = 14;
@@ -146,6 +156,27 @@ impl Reporter {
         println!("{:w$}{}:  {}", "", "Endpoint ID".field_label(), endpoint_id);
         if env.is_some_and(|(_, vars)| vars > 0) {
             println!("{:w$}{}", "", "ENV           defined".field_label());
+        }
+    }
+
+    pub fn view_details(
+        stack_type: &str,
+        endpoint_id: u64,
+        created_by: &str,
+        created: impl Display,
+        updated_by: &str,
+        updated: impl Display,
+        env_count: usize,
+    ) {
+        let w = Self::FIELD_LABEL_WIDTH;
+        println!("{:w$}{}:       {}", "", "Type".field_label(), stack_type);
+        println!("{:w$}{}:   {}", "", "Endpoint".field_label(), endpoint_id);
+        println!("{:w$}{}: {}", "", "Created by".field_label(), created_by);
+        println!("{:w$}{}:    {}", "", "Created".field_label(), created);
+        println!("{:w$}{}: {}", "", "Updated by".field_label(), updated_by);
+        println!("{:w$}{}:    {}", "", "Updated".field_label(), updated);
+        if env_count > 0 {
+            println!("{:w$}{}:   {}", "", "Env vars".field_label(), env_count);
         }
     }
 }

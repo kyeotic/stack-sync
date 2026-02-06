@@ -5,12 +5,17 @@ use crate::portainer::{self, PortainerClient};
 
 use crate::reporter::Reporter;
 
-pub fn sync_command(config_path: &str, stacks: &[String], dry_run: bool) -> Result<()> {
+pub fn sync_command(
+    config_path: &str,
+    stacks: &[String],
+    dry_run: bool,
+    verbose: bool,
+) -> Result<()> {
     let (api_key, configs) = resolve_stacks(config_path, stacks)?;
     for config in &configs {
         let client = portainer::PortainerClient::new(&config.host, &api_key);
         if dry_run {
-            sync_dry_run(config, &client)?;
+            sync_dry_run(config, &client, verbose)?;
         } else {
             sync(config, &client)?;
         }
@@ -18,7 +23,7 @@ pub fn sync_command(config_path: &str, stacks: &[String], dry_run: bool) -> Resu
     Ok(())
 }
 
-fn sync_dry_run(config: &Config, client: &PortainerClient) -> Result<()> {
+fn sync_dry_run(config: &Config, client: &PortainerClient, verbose: bool) -> Result<()> {
     let compose_path = config.compose_path();
     let compose_content = std::fs::read_to_string(&compose_path).context(format!(
         "Failed to read compose file: {}",
@@ -43,16 +48,18 @@ fn sync_dry_run(config: &Config, client: &PortainerClient) -> Result<()> {
         }
     }
 
-    let env_info = config
-        .env_path()
-        .map(|p| (p.display().to_string(), env_vars.len()));
-    Reporter::stack_details(
-        &config.host,
-        compose_path.display(),
-        compose_content.len(),
-        env_info,
-        config.endpoint_id,
-    );
+    if verbose {
+        let env_info = config
+            .env_path()
+            .map(|p| (p.display().to_string(), env_vars.len()));
+        Reporter::stack_details(
+            &config.host,
+            compose_path.display(),
+            compose_content.len(),
+            env_info,
+            config.endpoint_id,
+        );
+    }
 
     Ok(())
 }
