@@ -24,6 +24,21 @@ pub fn sync_command(
 }
 
 fn sync_dry_run(config: &Config, client: &PortainerClient, verbose: bool) -> Result<()> {
+    if !config.enabled {
+        match client.find_stack_by_name(&config.name)? {
+            Some(existing) if existing.status == 1 => {
+                Reporter::would_stop(&config.name, existing.id);
+            }
+            Some(_) => {
+                Reporter::already_stopped(&config.name);
+            }
+            None => {
+                Reporter::disabled(&config.name);
+            }
+        }
+        return Ok(());
+    }
+
     let compose_path = config.compose_path();
     let compose_content = std::fs::read_to_string(&compose_path).context(format!(
         "Failed to read compose file: {}",
@@ -65,6 +80,23 @@ fn sync_dry_run(config: &Config, client: &PortainerClient, verbose: bool) -> Res
 }
 
 fn sync(config: &Config, client: &PortainerClient) -> Result<()> {
+    if !config.enabled {
+        match client.find_stack_by_name(&config.name)? {
+            Some(existing) if existing.status == 1 => {
+                Reporter::stopping(&config.name);
+                let stack = client.stop_stack(existing.id, config.endpoint_id)?;
+                Reporter::stopped(&stack.name, stack.id);
+            }
+            Some(_) => {
+                Reporter::already_stopped(&config.name);
+            }
+            None => {
+                Reporter::disabled(&config.name);
+            }
+        }
+        return Ok(());
+    }
+
     let compose_path = config.compose_path();
     let compose_content = std::fs::read_to_string(&compose_path).context(format!(
         "Failed to read compose file: {}",
@@ -78,20 +110,28 @@ fn sync(config: &Config, client: &PortainerClient) -> Result<()> {
     match client.find_stack_by_name(&config.name)? {
         Some(existing) => {
             let remote_compose = client.get_stack_file(existing.id)?;
-            if remote_compose.trim_end() == compose_content.trim_end() && existing.env == env_vars {
+            let needs_update =
+                remote_compose.trim_end() != compose_content.trim_end() || existing.env != env_vars;
+            let was_inactive = existing.status == 2;
+
+            if needs_update {
+                Reporter::updating(&config.name);
+                let stack = client.update_stack(
+                    existing.id,
+                    config.endpoint_id,
+                    &compose_content,
+                    env_vars,
+                    false,
+                    true,
+                )?;
+                Reporter::updated(&stack.name, stack.id);
+            } else if was_inactive {
+                Reporter::starting(&config.name);
+                let stack = client.start_stack(existing.id, config.endpoint_id)?;
+                Reporter::started(&stack.name, stack.id);
+            } else {
                 Reporter::up_to_date(&config.name);
-                return Ok(());
             }
-            Reporter::updating(&config.name);
-            let stack = client.update_stack(
-                existing.id,
-                config.endpoint_id,
-                &compose_content,
-                env_vars,
-                false,
-                true,
-            )?;
-            Reporter::updated(&stack.name, stack.id);
         }
         None => {
             Reporter::creating(&config.name);

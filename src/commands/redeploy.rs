@@ -21,6 +21,11 @@ pub fn redeploy_command(
 }
 
 fn redeploy_dry_run(config: &Config, client: &PortainerClient, verbose: bool) -> Result<()> {
+    if !config.enabled {
+        Reporter::disabled(&config.name);
+        return Ok(());
+    }
+
     match client.find_stack_by_name(&config.name)? {
         Some(stack) => {
             Reporter::would_redeploy(&config.name);
@@ -43,6 +48,11 @@ fn redeploy_dry_run(config: &Config, client: &PortainerClient, verbose: bool) ->
 }
 
 fn redeploy(config: &Config, client: &PortainerClient) -> Result<()> {
+    if !config.enabled {
+        Reporter::disabled(&config.name);
+        return Ok(());
+    }
+
     let stack = client.find_stack_by_name(&config.name)?.context(format!(
         "Stack '{}' not found in Portainer. Use 'sync' to create it first.",
         config.name

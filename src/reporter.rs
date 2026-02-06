@@ -10,12 +10,14 @@ impl Reporter {
         text.style_if_supported(Style::new().bold())
     }
 
+    const ACTION_LABEL_WIDTH: usize = 15;
+
     // --- action labels ---
 
     pub fn would_update(name: &str, id: impl Display) {
         println!(
             " {} {} {}",
-            "Would Update".would_update().align_right(12),
+            "Would Update".would_update().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name),
             format!("(id: {})", id).dimmed()
         );
@@ -24,7 +26,7 @@ impl Reporter {
     pub fn would_create(name: &str) {
         println!(
             " {} {}",
-            "Would Create".would_update().align_right(12),
+            "Would Create".would_update().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -32,7 +34,7 @@ impl Reporter {
     pub fn updating(name: &str) {
         println!(
             " {} {}...",
-            "Updating".waiting().align_right(12),
+            "Updating".waiting().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -40,7 +42,7 @@ impl Reporter {
     pub fn updated(name: &str, id: impl Display) {
         println!(
             " {} {} {}",
-            "Updated".updated().align_right(12),
+            "Updated".updated().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name),
             format!("(id: {})", id).dimmed()
         );
@@ -49,7 +51,7 @@ impl Reporter {
     pub fn creating(name: &str) {
         println!(
             " {} {}...",
-            "Creating".waiting().align_right(12),
+            "Creating".waiting().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -57,7 +59,7 @@ impl Reporter {
     pub fn created(name: &str, id: impl Display) {
         println!(
             " {} {} {}",
-            "Created".updated().align_right(12),
+            "Created".updated().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name),
             format!("(id: {})", id).dimmed()
         );
@@ -66,7 +68,7 @@ impl Reporter {
     pub fn up_to_date(name: &str) {
         println!(
             " {} {}",
-            "Up-to-Date".up_to_date().align_right(12),
+            "Up-to-Date".up_to_date().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -74,7 +76,7 @@ impl Reporter {
     pub fn would_redeploy(name: &str) {
         println!(
             " {} {}",
-            "Would Redep.".would_update().align_right(12),
+            "Would Redeploy".would_update().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -82,7 +84,7 @@ impl Reporter {
     pub fn redeploying(name: &str) {
         println!(
             " {} {}...",
-            "Redeploying".waiting().align_right(12),
+            "Redeploying".waiting().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -90,16 +92,75 @@ impl Reporter {
     pub fn redeployed(name: &str, id: impl Display) {
         println!(
             " {} {} {}",
-            "Redeployed".updated().align_right(12),
+            "Redeployed".updated().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name),
             format!("(id: {})", id).dimmed()
+        );
+    }
+
+    pub fn would_stop(name: &str, id: impl Display) {
+        println!(
+            " {} {} {}",
+            "Would Stop".would_update().align_right(Self::ACTION_LABEL_WIDTH),
+            Self::bold(name),
+            format!("(id: {})", id).dimmed()
+        );
+    }
+
+    pub fn stopping(name: &str) {
+        println!(
+            " {} {}...",
+            "Stopping".waiting().align_right(Self::ACTION_LABEL_WIDTH),
+            Self::bold(name)
+        );
+    }
+
+    pub fn stopped(name: &str, id: impl Display) {
+        println!(
+            " {} {} {}",
+            "Stopped".updated().align_right(Self::ACTION_LABEL_WIDTH),
+            Self::bold(name),
+            format!("(id: {})", id).dimmed()
+        );
+    }
+
+    pub fn already_stopped(name: &str) {
+        println!(
+            " {} {}",
+            "Already Stopped".up_to_date().align_right(Self::ACTION_LABEL_WIDTH),
+            Self::bold(name)
+        );
+    }
+
+    pub fn starting(name: &str) {
+        println!(
+            " {} {}...",
+            "Starting".waiting().align_right(Self::ACTION_LABEL_WIDTH),
+            Self::bold(name)
+        );
+    }
+
+    pub fn started(name: &str, id: impl Display) {
+        println!(
+            " {} {} {}",
+            "Started".updated().align_right(Self::ACTION_LABEL_WIDTH),
+            Self::bold(name),
+            format!("(id: {})", id).dimmed()
+        );
+    }
+
+    pub fn disabled(name: &str) {
+        println!(
+            " {} {}",
+            "Disabled".up_to_date().align_right(Self::ACTION_LABEL_WIDTH),
+            Self::bold(name)
         );
     }
 
     pub fn not_found(name: &str) {
         println!(
             " {} {}",
-            "Not Found".would_update().align_right(12),
+            "Not Found".would_update().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -107,7 +168,7 @@ impl Reporter {
     pub fn view(name: &str, id: impl Display, status: &str) {
         println!(
             " {} {} {} {}",
-            "View".up_to_date().align_right(12),
+            "View".up_to_date().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name),
             format!("(id: {})", id).dimmed(),
             status.dimmed()
@@ -116,7 +177,8 @@ impl Reporter {
 
     // --- detail block ---
 
-    const FIELD_LABEL_WIDTH: usize = 14;
+    // +2 accounts for the leading space in action labels and a small indent
+    const FIELD_LABEL_WIDTH: usize = Self::ACTION_LABEL_WIDTH + 2;
 
     pub fn stack_details(
         host: &str,
@@ -197,6 +259,13 @@ mod tests {
         Reporter::would_redeploy("my-stack");
         Reporter::redeploying("my-stack");
         Reporter::redeployed("my-stack", 42);
+        Reporter::would_stop("my-stack", 42);
+        Reporter::stopping("my-stack");
+        Reporter::stopped("my-stack", 42);
+        Reporter::already_stopped("my-stack");
+        Reporter::starting("my-stack");
+        Reporter::started("my-stack", 42);
+        Reporter::disabled("my-stack");
         Reporter::not_found("my-stack");
         Reporter::stack_details(
             "https://portainer.example.com",

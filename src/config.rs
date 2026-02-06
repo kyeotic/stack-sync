@@ -8,6 +8,7 @@ pub struct StackEntry {
     pub compose_file: String,
     pub env_file: Option<String>,
     pub endpoint_id: Option<u64>,
+    pub enabled: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -17,6 +18,7 @@ pub struct Config {
     pub env_file: Option<String>,
     pub host: String,
     pub endpoint_id: u64,
+    pub enabled: bool,
     pub base_dir: PathBuf,
 }
 
@@ -65,6 +67,7 @@ impl PartialConfigFile {
             env_file: entry.env_file.clone(),
             host: global.host.clone(),
             endpoint_id: entry.endpoint_id.unwrap_or(global.endpoint_id),
+            enabled: entry.enabled.unwrap_or(true),
             base_dir: base_dir.to_path_buf(),
         })
     }
@@ -290,6 +293,7 @@ pub fn append_stack_to_config(
         compose_file: compose_file.to_string(),
         env_file: env_file.map(String::from),
         endpoint_id: None,
+        enabled: None,
     };
 
     config.stacks.insert(stack_name.to_string(), entry);
@@ -345,6 +349,9 @@ fn serialize_config(config: &PartialConfigFile) -> Result<String> {
         }
         if let Some(endpoint_id) = entry.endpoint_id {
             lines.push(format!("endpoint_id = {}", endpoint_id));
+        }
+        if entry.enabled == Some(false) {
+            lines.push("enabled = false".to_string());
         }
     }
 

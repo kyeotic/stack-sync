@@ -286,4 +286,28 @@ impl PortainerClient {
             .context("Failed to parse update stack response")?;
         Ok(stack)
     }
+
+    pub fn start_stack(&self, id: u64, endpoint_id: u64) -> Result<Stack> {
+        let path = format!("/stacks/{}/start?endpointId={}", id, endpoint_id);
+        let stack: Stack = self
+            .post(&path)
+            .send(())
+            .map_err(|e| api_error("POST", &path, e))?
+            .body_mut()
+            .read_json()
+            .context("Failed to parse start stack response")?;
+        Ok(stack)
+    }
+
+    pub fn stop_stack(&self, id: u64, endpoint_id: u64) -> Result<Stack> {
+        let path = format!("/stacks/{}/stop?endpointId={}", id, endpoint_id);
+        let stack: Stack = self
+            .post(&path)
+            .send(())
+            .map_err(|e| api_error("POST", &path, e))?
+            .body_mut()
+            .read_json()
+            .context("Failed to parse stop stack response")?;
+        Ok(stack)
+    }
 }

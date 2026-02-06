@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.7] - 2026-02-06
+
+### Added
+- `enabled` configuration option, starts/stops stacks
+
 ## [0.3.6] - 2026-02-05
 
 ### Added
