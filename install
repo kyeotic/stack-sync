@@ -1,6 +1,6 @@
 #!/bin/bash
 # Wrapper installer for stack-sync.
-# Usage: curl -fsSL https://raw.githubusercontent.com/kyeotic/stack-sync/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/kyeotic/stack-sync/main/install | bash
 set -euo pipefail
 
 export INSTALL_REPO="kyeotic/stack-sync"

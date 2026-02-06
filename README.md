@@ -18,7 +18,13 @@ brew install kyeotic/tap/stack-sync
 ### One-line Shell
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kyeotic/stack-sync/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kyeotic/stack-sync/main/install | bash
+```
+
+### With Nix Flakes
+
+```bash
+nix profile install github:kyeotic/stack-sync
 ```
 
 Or download a binary from the [releases page](https://github.com/kyeotic/stack-sync/releases).
@@ -173,6 +179,8 @@ Check for the latest release and update the binary in-place.
 ```bash
 stack-sync upgrade
 ```
+
+> **Note:** Self-update is not supported when installed via Nix. Use `nix profile upgrade --flake github:kyeotic/stack-sync` instead.
 
 ## Env File Format
 

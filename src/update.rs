@@ -30,6 +30,15 @@ fn current_target() -> Result<&'static str> {
 }
 
 pub fn upgrade() -> Result<()> {
+    if let Ok(exe) = std::env::current_exe() {
+        if exe.to_string_lossy().contains("/nix/store/") {
+            bail!(
+                "This binary was installed via Nix. Update with:\n  \
+                 nix profile upgrade --flake github:kyeotic/stack-sync"
+            );
+        }
+    }
+
     let current_version = env!("CARGO_PKG_VERSION");
     println!("Current version: v{}", current_version);
 

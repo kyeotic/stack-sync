@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.6] - 2026-02-05
+
+### Added
+- nix flake install instructions
+
+### Changed
+- `upgrade` handling when installed by nix
+
 ## [0.3.5] - 2026-02-05
 
 ### Added
