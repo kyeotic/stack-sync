@@ -13,7 +13,7 @@
       in {
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "stack-sync";
-          version = self.shortRev;
+          version = self.shortRev or self.dirtyShortRev or "dev";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           meta = with pkgs.lib; {
