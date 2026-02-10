@@ -3,6 +3,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum DeployMode {
+    #[default]
+    Portainer,
+    Ssh,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct StackEntry {
     pub compose_file: String,
@@ -35,19 +43,39 @@ fn default_endpoint_id() -> u64 {
 /// Partial config file for hierarchical resolution - all fields optional
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct PartialConfigFile {
+    pub mode: Option<DeployMode>,
     pub portainer_api_key: Option<String>,
     pub host: Option<String>,
     pub endpoint_id: Option<u64>,
+    pub ssh_user: Option<String>,
+    pub ssh_key: Option<String>,
+    pub host_dir: Option<String>,
     #[serde(default)]
     pub stacks: HashMap<String, StackEntry>,
 }
 
-/// Resolved global config with all required fields validated
+/// Portainer-specific global config
 #[derive(Debug)]
-pub struct ResolvedGlobalConfig {
+pub struct PortainerGlobalConfig {
     pub api_key: String,
     pub host: String,
     pub endpoint_id: u64,
+}
+
+/// SSH-specific global config
+#[derive(Debug)]
+pub struct SshGlobalConfig {
+    pub host: String,
+    pub ssh_user: Option<String>,
+    pub ssh_key: Option<String>,
+    pub host_dir: String,
+}
+
+/// Resolved global config with all required fields validated
+#[derive(Debug)]
+pub enum ResolvedGlobalConfig {
+    Portainer(PortainerGlobalConfig),
+    Ssh(SshGlobalConfig),
 }
 
 impl PartialConfigFile {
@@ -61,12 +89,20 @@ impl PartialConfigFile {
             .stacks
             .get(stack_name)
             .context(format!("Stack '{}' not found in config", stack_name))?;
+
+        let (host, endpoint_id) = match global {
+            ResolvedGlobalConfig::Portainer(p) => {
+                (p.host.clone(), entry.endpoint_id.unwrap_or(p.endpoint_id))
+            }
+            ResolvedGlobalConfig::Ssh(s) => (s.host.clone(), 0),
+        };
+
         Ok(Config {
             name: stack_name.to_string(),
             compose_file: entry.compose_file.clone(),
             env_file: entry.env_file.clone(),
-            host: global.host.clone(),
-            endpoint_id: entry.endpoint_id.unwrap_or(global.endpoint_id),
+            host,
+            endpoint_id,
             enabled: entry.enabled.unwrap_or(true),
             base_dir: base_dir.to_path_buf(),
         })
@@ -79,9 +115,13 @@ impl PartialConfigFile {
 
 /// Result of walking the config chain
 struct ConfigChainResult {
+    mode: Option<DeployMode>,
     api_key: Option<String>,
     host: Option<String>,
     endpoint_id: Option<u64>,
+    ssh_user: Option<String>,
+    ssh_key: Option<String>,
+    host_dir: Option<String>,
     local_config: Option<PartialConfigFile>,
     local_config_path: Option<PathBuf>,
 }
@@ -96,8 +136,12 @@ fn walk_config_chain(start_dir: &Path) -> Result<ConfigChainResult> {
 
     // Start with env var for API key (highest priority)
     let mut api_key = std::env::var("PORTAINER_API_KEY").ok();
+    let mut mode: Option<DeployMode> = None;
     let mut host: Option<String> = None;
     let mut endpoint_id: Option<u64> = None;
+    let mut ssh_user: Option<String> = None;
+    let mut ssh_key: Option<String> = None;
+    let mut host_dir: Option<String> = None;
     let mut local_config: Option<PartialConfigFile> = None;
     let mut local_config_path: Option<PathBuf> = None;
 
@@ -136,6 +180,9 @@ fn walk_config_chain(start_dir: &Path) -> Result<ConfigChainResult> {
             }
 
             // Inherit values if not already set (earlier configs have priority)
+            if mode.is_none() {
+                mode = partial.mode;
+            }
             if api_key.is_none() {
                 api_key = partial.portainer_api_key;
             }
@@ -145,9 +192,25 @@ fn walk_config_chain(start_dir: &Path) -> Result<ConfigChainResult> {
             if endpoint_id.is_none() {
                 endpoint_id = partial.endpoint_id;
             }
+            if ssh_user.is_none() {
+                ssh_user = partial.ssh_user;
+            }
+            if ssh_key.is_none() {
+                ssh_key = partial.ssh_key;
+            }
+            if host_dir.is_none() {
+                host_dir = partial.host_dir;
+            }
 
-            // Early termination if we have all required values
-            if api_key.is_some() && host.is_some() && endpoint_id.is_some() {
+            // Early termination - mode-aware
+            let resolved_mode = mode.clone().unwrap_or_default();
+            let have_all = match resolved_mode {
+                DeployMode::Portainer => {
+                    api_key.is_some() && host.is_some() && endpoint_id.is_some()
+                }
+                DeployMode::Ssh => host.is_some() && host_dir.is_some(),
+            };
+            if have_all {
                 break;
             }
         }
@@ -163,9 +226,13 @@ fn walk_config_chain(start_dir: &Path) -> Result<ConfigChainResult> {
     }
 
     Ok(ConfigChainResult {
+        mode,
         api_key,
         host,
         endpoint_id,
+        ssh_user,
+        ssh_key,
+        host_dir,
         local_config,
         local_config_path,
     })
@@ -188,16 +255,6 @@ pub fn resolve_config_chain(
 
     let result = walk_config_chain(start_dir)?;
 
-    // Validate required fields
-    let api_key = result.api_key.context(
-        "API key not found. Set PORTAINER_API_KEY environment variable or add \
-         'portainer_api_key' to a .stack-sync.toml config file.",
-    )?;
-
-    let host = result
-        .host
-        .context("Host not found. Add 'host' to a .stack-sync.toml config file.")?;
-
     let local_config = result
         .local_config
         .context("No config file found. Create a .stack-sync.toml file with stack definitions.")?;
@@ -206,18 +263,41 @@ pub fn resolve_config_chain(
         .local_config_path
         .expect("local_config_path should be set when local_config is set");
 
-    // Use default endpoint_id if not specified
-    let endpoint_id = result.endpoint_id.unwrap_or_else(default_endpoint_id);
+    let mode = result.mode.unwrap_or_default();
 
-    Ok((
-        ResolvedGlobalConfig {
-            api_key,
-            host,
-            endpoint_id,
-        },
-        local_config,
-        local_config_path,
-    ))
+    let global = match mode {
+        DeployMode::Portainer => {
+            let api_key = result.api_key.context(
+                "API key not found. Set PORTAINER_API_KEY environment variable or add \
+                 'portainer_api_key' to a .stack-sync.toml config file.",
+            )?;
+            let host = result
+                .host
+                .context("Host not found. Add 'host' to a .stack-sync.toml config file.")?;
+            let endpoint_id = result.endpoint_id.unwrap_or_else(default_endpoint_id);
+            ResolvedGlobalConfig::Portainer(PortainerGlobalConfig {
+                api_key,
+                host,
+                endpoint_id,
+            })
+        }
+        DeployMode::Ssh => {
+            let host = result
+                .host
+                .context("Host not found. Add 'host' to a .stack-sync.toml config file.")?;
+            let host_dir = result.host_dir.context(
+                "host_dir not found. Add 'host_dir' to a .stack-sync.toml config file for SSH mode.",
+            )?;
+            ResolvedGlobalConfig::Ssh(SshGlobalConfig {
+                host,
+                ssh_user: result.ssh_user,
+                ssh_key: result.ssh_key,
+                host_dir,
+            })
+        }
+    };
+
+    Ok((global, local_config, local_config_path))
 }
 
 impl Config {
@@ -325,6 +405,13 @@ fn serialize_config(config: &PartialConfigFile) -> Result<String> {
     // Build the config manually to control ordering
     let mut lines = Vec::new();
 
+    if let Some(ref mode) = config.mode {
+        let mode_str = match mode {
+            DeployMode::Portainer => "portainer",
+            DeployMode::Ssh => "ssh",
+        };
+        lines.push(format!("mode = {:?}", mode_str));
+    }
     if let Some(ref key) = config.portainer_api_key {
         lines.push(format!("portainer_api_key = {:?}", key));
     }
@@ -333,6 +420,15 @@ fn serialize_config(config: &PartialConfigFile) -> Result<String> {
     }
     if let Some(endpoint_id) = config.endpoint_id {
         lines.push(format!("endpoint_id = {}", endpoint_id));
+    }
+    if let Some(ref user) = config.ssh_user {
+        lines.push(format!("ssh_user = {:?}", user));
+    }
+    if let Some(ref key) = config.ssh_key {
+        lines.push(format!("ssh_key = {:?}", key));
+    }
+    if let Some(ref dir) = config.host_dir {
+        lines.push(format!("host_dir = {:?}", dir));
     }
 
     // Sort stack names for deterministic output
@@ -358,7 +454,7 @@ fn serialize_config(config: &PartialConfigFile) -> Result<String> {
     Ok(lines.join("\n") + "\n")
 }
 
-/// Create a parent config file with credentials
+/// Create a parent config file with Portainer credentials
 pub fn write_parent_config(
     path: &Path,
     api_key: &str,
@@ -369,7 +465,29 @@ pub fn write_parent_config(
         portainer_api_key: Some(api_key.to_string()),
         host: Some(host.to_string()),
         endpoint_id,
-        stacks: HashMap::new(),
+        ..Default::default()
+    };
+
+    let content = serialize_config(&config)?;
+    std::fs::write(path, content)
+        .context(format!("Failed to write config file: {}", path.display()))
+}
+
+/// Create a parent config file with SSH settings
+pub fn write_ssh_parent_config(
+    path: &Path,
+    host: &str,
+    host_dir: &str,
+    ssh_user: Option<&str>,
+    ssh_key: Option<&str>,
+) -> Result<()> {
+    let config = PartialConfigFile {
+        mode: Some(DeployMode::Ssh),
+        host: Some(host.to_string()),
+        host_dir: Some(host_dir.to_string()),
+        ssh_user: ssh_user.map(String::from),
+        ssh_key: ssh_key.map(String::from),
+        ..Default::default()
     };
 
     let content = serialize_config(&config)?;
@@ -388,7 +506,10 @@ pub fn write_local_config_template(path: &Path) -> Result<()> {
         .context(format!("Failed to write config file: {}", path.display()))
 }
 
-pub fn resolve_stacks(config_path: &str, filter: &[String]) -> Result<(String, Vec<Config>)> {
+pub fn resolve_stacks(
+    config_path: &str,
+    filter: &[String],
+) -> Result<(ResolvedGlobalConfig, Vec<Config>)> {
     let path = Path::new(config_path);
     let (global_config, local_config, config_path) = resolve_config_chain(path)?;
     let base_dir = config_path.parent().unwrap_or(Path::new(".")).to_path_buf();
@@ -410,12 +531,20 @@ pub fn resolve_stacks(config_path: &str, filter: &[String]) -> Result<(String, V
         .map(|name| local_config.resolve(name, &global_config, &base_dir))
         .collect();
 
-    Ok((global_config.api_key, configs?))
+    Ok((global_config, configs?))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn portainer_global() -> ResolvedGlobalConfig {
+        ResolvedGlobalConfig::Portainer(PortainerGlobalConfig {
+            api_key: "test_key".to_string(),
+            host: "https://portainer.example.com".to_string(),
+            endpoint_id: 2,
+        })
+    }
 
     #[test]
     fn test_parse_env_str_basic() {
@@ -485,11 +614,7 @@ mod tests {
 compose_file = "compose.yaml"
 "#;
         let config: PartialConfigFile = toml::from_str(toml_str).unwrap();
-        let global = ResolvedGlobalConfig {
-            api_key: "test_key".to_string(),
-            host: "https://portainer.example.com".to_string(),
-            endpoint_id: 2,
-        };
+        let global = portainer_global();
         let resolved = config.resolve("my-stack", &global, Path::new(".")).unwrap();
         assert_eq!(resolved.env_file, None);
     }
@@ -501,11 +626,7 @@ compose_file = "compose.yaml"
 compose_file = "compose.yaml"
 "#;
         let config: PartialConfigFile = toml::from_str(toml_str).unwrap();
-        let global = ResolvedGlobalConfig {
-            api_key: "test_key".to_string(),
-            host: "https://portainer.example.com".to_string(),
-            endpoint_id: 2,
-        };
+        let global = portainer_global();
         let result = config.resolve("nonexistent", &global, Path::new("."));
         assert!(result.is_err());
     }
@@ -567,11 +688,11 @@ compose_file = "compose.yaml"
 env_file = ".env"
 "#;
         let config: PartialConfigFile = toml::from_str(toml_str).unwrap();
-        let global = ResolvedGlobalConfig {
+        let global = ResolvedGlobalConfig::Portainer(PortainerGlobalConfig {
             api_key: "test_key".to_string(),
             host: "https://example.com".to_string(),
             endpoint_id: 2,
-        };
+        });
         let resolved = config
             .resolve("my-stack", &global, Path::new("/test"))
             .unwrap();
@@ -588,14 +709,66 @@ compose_file = "compose.yaml"
 endpoint_id = 7
 "#;
         let config: PartialConfigFile = toml::from_str(toml_str).unwrap();
-        let global = ResolvedGlobalConfig {
+        let global = ResolvedGlobalConfig::Portainer(PortainerGlobalConfig {
             api_key: "test_key".to_string(),
             host: "https://example.com".to_string(),
             endpoint_id: 2,
-        };
+        });
         let resolved = config
             .resolve("my-stack", &global, Path::new("/test"))
             .unwrap();
         assert_eq!(resolved.endpoint_id, 7);
+    }
+
+    #[test]
+    fn test_parse_ssh_mode_config() {
+        let toml_str = r#"
+mode = "ssh"
+host = "192.168.0.20"
+ssh_user = "root"
+ssh_key = "~/.ssh/id_ed25519"
+host_dir = "/mnt/app_config/docker"
+
+[stacks.my-stack]
+compose_file = "compose.yaml"
+"#;
+        let config: PartialConfigFile = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.mode, Some(DeployMode::Ssh));
+        assert_eq!(config.host, Some("192.168.0.20".to_string()));
+        assert_eq!(config.ssh_user, Some("root".to_string()));
+        assert_eq!(config.ssh_key, Some("~/.ssh/id_ed25519".to_string()));
+        assert_eq!(config.host_dir, Some("/mnt/app_config/docker".to_string()));
+    }
+
+    #[test]
+    fn test_mode_defaults_to_portainer() {
+        let toml_str = r#"
+[stacks.my-stack]
+compose_file = "compose.yaml"
+"#;
+        let config: PartialConfigFile = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.mode, None);
+        // Default should be Portainer
+        assert_eq!(config.mode.unwrap_or_default(), DeployMode::Portainer);
+    }
+
+    #[test]
+    fn test_ssh_resolve_sets_endpoint_id_zero() {
+        let toml_str = r#"
+[stacks.my-stack]
+compose_file = "compose.yaml"
+"#;
+        let config: PartialConfigFile = toml::from_str(toml_str).unwrap();
+        let global = ResolvedGlobalConfig::Ssh(SshGlobalConfig {
+            host: "192.168.0.20".to_string(),
+            ssh_user: None,
+            ssh_key: None,
+            host_dir: "/mnt/docker".to_string(),
+        });
+        let resolved = config
+            .resolve("my-stack", &global, Path::new("/test"))
+            .unwrap();
+        assert_eq!(resolved.endpoint_id, 0);
+        assert_eq!(resolved.host, "192.168.0.20");
     }
 }

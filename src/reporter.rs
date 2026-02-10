@@ -17,7 +17,9 @@ impl Reporter {
     pub fn would_update(name: &str, id: impl Display) {
         println!(
             " {} {} {}",
-            "Would Update".would_update().align_right(Self::ACTION_LABEL_WIDTH),
+            "Would Update"
+                .would_update()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name),
             format!("(id: {})", id).dimmed()
         );
@@ -26,7 +28,9 @@ impl Reporter {
     pub fn would_create(name: &str) {
         println!(
             " {} {}",
-            "Would Create".would_update().align_right(Self::ACTION_LABEL_WIDTH),
+            "Would Create"
+                .would_update()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -68,7 +72,9 @@ impl Reporter {
     pub fn up_to_date(name: &str) {
         println!(
             " {} {}",
-            "Up-to-Date".up_to_date().align_right(Self::ACTION_LABEL_WIDTH),
+            "Up-to-Date"
+                .up_to_date()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -76,7 +82,9 @@ impl Reporter {
     pub fn would_redeploy(name: &str) {
         println!(
             " {} {}",
-            "Would Redeploy".would_update().align_right(Self::ACTION_LABEL_WIDTH),
+            "Would Redeploy"
+                .would_update()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -84,7 +92,9 @@ impl Reporter {
     pub fn redeploying(name: &str) {
         println!(
             " {} {}...",
-            "Redeploying".waiting().align_right(Self::ACTION_LABEL_WIDTH),
+            "Redeploying"
+                .waiting()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -101,7 +111,9 @@ impl Reporter {
     pub fn would_stop(name: &str, id: impl Display) {
         println!(
             " {} {} {}",
-            "Would Stop".would_update().align_right(Self::ACTION_LABEL_WIDTH),
+            "Would Stop"
+                .would_update()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name),
             format!("(id: {})", id).dimmed()
         );
@@ -127,7 +139,9 @@ impl Reporter {
     pub fn already_stopped(name: &str) {
         println!(
             " {} {}",
-            "Already Stopped".up_to_date().align_right(Self::ACTION_LABEL_WIDTH),
+            "Already Stopped"
+                .up_to_date()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -152,7 +166,9 @@ impl Reporter {
     pub fn disabled(name: &str) {
         println!(
             " {} {}",
-            "Disabled".up_to_date().align_right(Self::ACTION_LABEL_WIDTH),
+            "Disabled"
+                .up_to_date()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -160,7 +176,9 @@ impl Reporter {
     pub fn not_found(name: &str) {
         println!(
             " {} {}",
-            "Not Found".would_update().align_right(Self::ACTION_LABEL_WIDTH),
+            "Not Found"
+                .would_update()
+                .align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name)
         );
     }
@@ -239,6 +257,60 @@ impl Reporter {
         println!("{:w$}{}:    {}", "", "Updated".field_label(), updated);
         if env_count > 0 {
             println!("{:w$}{}:   {}", "", "Env vars".field_label(), env_count);
+        }
+    }
+
+    pub fn ssh_stack_details(
+        host: &str,
+        compose_path: impl Display,
+        compose_bytes: usize,
+        env: Option<(String, usize)>,
+        host_dir: &str,
+    ) {
+        let w = Self::FIELD_LABEL_WIDTH;
+        println!("{:w$}{}:         {}", "", "Host".field_label(), host);
+        println!(
+            "{:w$}{}: {} {}",
+            "",
+            "Compose file".field_label(),
+            compose_path,
+            format!("({} bytes)", compose_bytes).dimmed()
+        );
+        match &env {
+            Some((path, vars)) => {
+                println!(
+                    "{:w$}{}:     {} {}",
+                    "",
+                    "Env file".field_label(),
+                    path,
+                    format!("({} vars)", vars).dimmed()
+                );
+            }
+            None => {
+                println!(
+                    "{:w$}{}:     {}",
+                    "",
+                    "Env file".field_label(),
+                    "(none)".dimmed()
+                );
+            }
+        }
+        println!("{:w$}{}:     {}", "", "Host Dir".field_label(), host_dir);
+        if env.is_some_and(|(_, vars)| vars > 0) {
+            println!("{:w$}{}", "", "ENV           defined".field_label());
+        }
+    }
+
+    pub fn ssh_view_details(host: &str, host_dir: &str, ps_output: Option<&str>) {
+        let w = Self::FIELD_LABEL_WIDTH;
+        println!("{:w$}{}:       SSH", "", "Mode".field_label());
+        println!("{:w$}{}:         {}", "", "Host".field_label(), host);
+        println!("{:w$}{}:     {}", "", "Host Dir".field_label(), host_dir);
+        if let Some(ps) = ps_output {
+            println!("{:w$}{}:", "", "Containers".field_label());
+            for line in ps.lines() {
+                println!("{:w$}  {}", "", line);
+            }
         }
     }
 }
