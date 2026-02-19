@@ -1,19 +1,30 @@
 use anyhow::{Context, Result};
 
-use crate::config::{Config, resolve_stacks};
+use crate::config::{Config, ResolvedGlobalConfig, resolve_stacks};
 use crate::portainer::{self, PortainerClient};
 use crate::reporter::Reporter;
+use crate::ssh::SshClient;
 
 pub fn view_command(config_path: &str, stacks: &[String], verbose: bool) -> Result<()> {
-    let (api_key, configs) = resolve_stacks(config_path, stacks)?;
-    for config in &configs {
-        let client = portainer::PortainerClient::new(&config.host, &api_key);
-        view(config, &client, verbose)?;
+    let (global_config, configs) = resolve_stacks(config_path, stacks)?;
+    match &global_config {
+        ResolvedGlobalConfig::Portainer(p) => {
+            for config in &configs {
+                let client = portainer::PortainerClient::new(&p.host, &p.api_key);
+                view_portainer(config, &client, verbose)?;
+            }
+        }
+        ResolvedGlobalConfig::Ssh(s) => {
+            let client = SshClient::new(s);
+            for config in &configs {
+                view_ssh(config, &client, s, verbose)?;
+            }
+        }
     }
     Ok(())
 }
 
-fn view(config: &Config, client: &PortainerClient, verbose: bool) -> Result<()> {
+fn view_portainer(config: &Config, client: &PortainerClient, verbose: bool) -> Result<()> {
     let stack = client
         .find_stack_by_name(&config.name)?
         .context(format!("Stack '{}' not found", config.name))?;
@@ -43,6 +54,35 @@ fn view(config: &Config, client: &PortainerClient, verbose: bool) -> Result<()> 
             format_timestamp(stack.update_date),
             stack.env.len(),
         );
+    }
+
+    Ok(())
+}
+
+fn view_ssh(
+    config: &Config,
+    client: &SshClient,
+    ssh_config: &crate::config::SshGlobalConfig,
+    verbose: bool,
+) -> Result<()> {
+    let exists = client.stack_exists(&config.name)?;
+    if !exists {
+        Reporter::not_found(&config.name);
+        return Ok(());
+    }
+
+    let running = client.stack_is_running(&config.name)?;
+    let status = if running { "active" } else { "inactive" };
+
+    Reporter::view(&config.name, &ssh_config.host, status);
+
+    if verbose {
+        let ps_output = if running {
+            client.docker_compose_ps(&config.name).ok()
+        } else {
+            None
+        };
+        Reporter::ssh_view_details(&ssh_config.host, &ssh_config.host_dir, ps_output.as_deref());
     }
 
     Ok(())

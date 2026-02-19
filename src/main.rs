@@ -5,6 +5,7 @@ mod commands;
 mod config;
 mod portainer;
 mod reporter;
+mod ssh;
 mod styles;
 mod update;
 
@@ -49,15 +50,27 @@ enum Cli {
     },
     /// Initialize config files for stack-sync
     Init {
-        /// Portainer API key
+        /// Deploy mode: "portainer" or "ssh"
+        #[arg(long, default_value = "portainer")]
+        mode: String,
+        /// Portainer API key (required for portainer mode)
         #[arg(long)]
-        portainer_api_key: String,
-        /// Portainer hostname (e.g. https://portainer.example.com)
+        portainer_api_key: Option<String>,
+        /// Hostname (e.g. https://portainer.example.com or 192.168.0.20)
         #[arg(long)]
         host: String,
-        /// Endpoint ID (optional, defaults to 2)
+        /// Endpoint ID (optional, defaults to 2, portainer mode only)
         #[arg(long)]
         endpoint_id: Option<u64>,
+        /// SSH user (optional, ssh mode only)
+        #[arg(long)]
+        ssh_user: Option<String>,
+        /// SSH key path (optional, ssh mode only)
+        #[arg(long)]
+        ssh_key: Option<String>,
+        /// Remote host directory for stacks (required for ssh mode)
+        #[arg(long)]
+        host_dir: Option<String>,
         /// Parent directory for global config (defaults to $HOME)
         #[arg(long)]
         parent_dir: Option<String>,
@@ -106,15 +119,23 @@ fn main() -> Result<()> {
             force,
         } => commands::import_command(&config, &stack, force)?,
         Cli::Init {
+            mode,
             portainer_api_key,
             host,
             endpoint_id,
+            ssh_user,
+            ssh_key,
+            host_dir,
             parent_dir,
             force,
         } => commands::init_command(
-            &portainer_api_key,
+            &mode,
+            portainer_api_key.as_deref(),
             &host,
             endpoint_id,
+            ssh_user.as_deref(),
+            ssh_key.as_deref(),
+            host_dir.as_deref(),
             parent_dir.as_deref(),
             force,
         )?,
