@@ -28,7 +28,7 @@ impl SshClient {
     }
 
     fn ssh_args(&self) -> Vec<String> {
-        let mut args = vec!["-o".to_string(), "BatchMode=yes".to_string()];
+        let mut args = vec![];
         if let Some(ref key) = self.key {
             args.push("-i".to_string());
             args.push(key.clone());
@@ -262,17 +262,14 @@ mod tests {
     fn test_ssh_args_without_key() {
         let client = SshClient::new(&test_config(None, None));
         let args = client.ssh_args();
-        assert_eq!(args, vec!["-o", "BatchMode=yes"]);
+        assert!(args.is_empty());
     }
 
     #[test]
     fn test_ssh_args_with_key() {
         let client = SshClient::new(&test_config(None, Some("/home/user/.ssh/id_ed25519")));
         let args = client.ssh_args();
-        assert_eq!(
-            args,
-            vec!["-o", "BatchMode=yes", "-i", "/home/user/.ssh/id_ed25519"]
-        );
+        assert_eq!(args, vec!["-i", "/home/user/.ssh/id_ed25519"]);
     }
 
     #[test]

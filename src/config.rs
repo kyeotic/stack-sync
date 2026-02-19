@@ -152,6 +152,7 @@ fn walk_config_chain(
 
     // If an explicit local file was provided, load it before the walk so the walk
     // won't replace it with a .stack-sync.toml found in the same directory.
+    let mut skip_walk = false;
     if let Some(explicit) = explicit_local_file {
         let content = std::fs::read_to_string(explicit).context(format!(
             "Failed to read config file: {}",
@@ -161,8 +162,39 @@ fn walk_config_chain(
             "Failed to parse config file: {}",
             explicit.display()
         ))?;
+
+        // Inherit global fields from the explicit file (clone so partial can be stored whole)
+        if mode.is_none() {
+            mode = partial.mode.clone();
+        }
+        if api_key.is_none() {
+            api_key = partial.portainer_api_key.clone();
+        }
+        if host.is_none() {
+            host = partial.host.clone();
+        }
+        if endpoint_id.is_none() {
+            endpoint_id = partial.endpoint_id;
+        }
+        if ssh_user.is_none() {
+            ssh_user = partial.ssh_user.clone();
+        }
+        if ssh_key.is_none() {
+            ssh_key = partial.ssh_key.clone();
+        }
+        if host_dir.is_none() {
+            host_dir = partial.host_dir.clone();
+        }
+
         local_config = Some(partial);
         local_config_path = Some(explicit.to_path_buf());
+
+        // Skip directory walk if we already have everything we need
+        let resolved_mode = mode.clone().unwrap_or_default();
+        skip_walk = match resolved_mode {
+            DeployMode::Portainer => api_key.is_some() && host.is_some() && endpoint_id.is_some(),
+            DeployMode::Ssh => host.is_some() && host_dir.is_some(),
+        };
     }
 
     // Canonicalize starting directory
@@ -170,7 +202,11 @@ fn walk_config_chain(
         .canonicalize()
         .context(format!("Directory not found: {}", start_dir.display()))?;
 
-    let mut current = Some(start_canonical.as_path());
+    let mut current = if skip_walk {
+        None
+    } else {
+        Some(start_canonical.as_path())
+    };
 
     while let Some(dir) = current {
         // Check if we've escaped $HOME via symlinks

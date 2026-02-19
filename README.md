@@ -83,13 +83,13 @@ compose_file = "compose.yaml"
 env_file = ".env"  # optional
 ```
 
-| Field      | Description                                       | Required |
-| ---------- | ------------------------------------------------- | -------- |
-| `mode`     | Set to `"ssh"` to enable SSH mode                 | Yes      |
-| `host`     | SSH hostname or IP address                        | Yes      |
-| `host_dir` | Remote directory where stacks are stored          | Yes      |
-| `ssh_user` | SSH username                                      | No       |
-| `ssh_key`  | Path to SSH private key (`~` is expanded)         | No       |
+| Field      | Description                               | Required |
+| ---------- | ----------------------------------------- | -------- |
+| `mode`     | Set to `"ssh"` to enable SSH mode         | Yes      |
+| `host`     | SSH hostname or IP address                | Yes      |
+| `host_dir` | Remote directory where stacks are stored  | Yes      |
+| `ssh_user` | SSH username                              | No       |
+| `ssh_key`  | Path to SSH private key (`~` is expanded) | No       |
 
 Stacks are deployed to `{host_dir}/{stack_name}/compose.yaml` on the remote host, with an optional `.env` file alongside it. This layout is compatible with [dockge](https://github.com/louislam/dockge) and similar tools.
 
@@ -178,17 +178,17 @@ stack-sync init \
   --parent-dir ~
 ```
 
-| Argument              | Description                                  | Required              |
-| --------------------- | -------------------------------------------- | --------------------- |
+| Argument              | Description                                  | Required                |
+| --------------------- | -------------------------------------------- | ----------------------- |
 | `--mode`              | Deploy mode: `portainer` or `ssh`            | No (default: portainer) |
-| `--portainer-api-key` | Portainer API key                            | Portainer mode only   |
-| `--host`              | Portainer URL or SSH hostname                | Yes                   |
-| `--endpoint-id`       | Default endpoint ID (defaults to 2)          | No                    |
-| `--host-dir`          | Remote directory for stacks                  | SSH mode only         |
-| `--ssh-user`          | SSH username                                 | No                    |
-| `--ssh-key`           | Path to SSH private key                      | No                    |
-| `--parent-dir`        | Directory for credentials config (default ~) | No                    |
-| `--force`             | Overwrite existing files                     | No                    |
+| `--portainer-api-key` | Portainer API key                            | Portainer mode only     |
+| `--host`              | Portainer URL or SSH hostname                | Yes                     |
+| `--endpoint-id`       | Default endpoint ID (defaults to 2)          | No                      |
+| `--host-dir`          | Remote directory for stacks                  | SSH mode only           |
+| `--ssh-user`          | SSH username                                 | No                      |
+| `--ssh-key`           | Path to SSH private key                      | No                      |
+| `--parent-dir`        | Directory for credentials config (default ~) | No                      |
+| `--force`             | Overwrite existing files                     | No                      |
 
 This creates two files:
 - `{parent-dir}/.stack-sync.toml` — credentials/connection settings
@@ -204,11 +204,11 @@ stack-sync import my-stack --force            # overwrite existing files
 stack-sync import my-stack -C /path/to/dir    # use a different config directory
 ```
 
-| Argument  | Description                                    | Required |
-| --------- | ---------------------------------------------- | -------- |
-| `<stack>` | Name of the stack to import                    | Yes      |
-| `-C`      | Path to config file or directory               | No       |
-| `--force` | Overwrite existing files                       | No       |
+| Argument  | Description                      | Required |
+| --------- | -------------------------------- | -------- |
+| `<stack>` | Name of the stack to import      | Yes      |
+| `-C`      | Path to config file or directory | No       |
+| `--force` | Overwrite existing files         | No       |
 
 Creates `{stack}.compose.yaml` and `{stack}.env` files, and adds a `[stacks.{stack}]` entry to the local config. In SSH mode, the stack is read from `{host_dir}/{stack}/compose.yaml` on the remote host.
 
