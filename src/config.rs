@@ -127,8 +127,13 @@ struct ConfigChainResult {
 }
 
 /// Walk up directories from start_dir to $HOME, collecting config values.
+/// If explicit_local_file is provided, it is used as the local config instead of
+/// the first .stack-sync.toml found during the walk.
 /// Returns partial results - validation happens in resolve_config_chain().
-fn walk_config_chain(start_dir: &Path) -> Result<ConfigChainResult> {
+fn walk_config_chain(
+    start_dir: &Path,
+    explicit_local_file: Option<&Path>,
+) -> Result<ConfigChainResult> {
     let home_dir = std::env::var("HOME")
         .ok()
         .map(PathBuf::from)
@@ -144,6 +149,21 @@ fn walk_config_chain(start_dir: &Path) -> Result<ConfigChainResult> {
     let mut host_dir: Option<String> = None;
     let mut local_config: Option<PartialConfigFile> = None;
     let mut local_config_path: Option<PathBuf> = None;
+
+    // If an explicit local file was provided, load it before the walk so the walk
+    // won't replace it with a .stack-sync.toml found in the same directory.
+    if let Some(explicit) = explicit_local_file {
+        let content = std::fs::read_to_string(explicit).context(format!(
+            "Failed to read config file: {}",
+            explicit.display()
+        ))?;
+        let partial: PartialConfigFile = toml::from_str(&content).context(format!(
+            "Failed to parse config file: {}",
+            explicit.display()
+        ))?;
+        local_config = Some(partial);
+        local_config_path = Some(explicit.to_path_buf());
+    }
 
     // Canonicalize starting directory
     let start_canonical = start_dir
@@ -243,17 +263,21 @@ fn walk_config_chain(start_dir: &Path) -> Result<ConfigChainResult> {
 pub fn resolve_config_chain(
     start_path: &Path,
 ) -> Result<(ResolvedGlobalConfig, PartialConfigFile, PathBuf)> {
-    // If path is a file, use it directly; otherwise treat as directory
-    let start_dir = if start_path.is_file() {
-        start_path.parent().unwrap_or(Path::new("."))
+    // If path is a file, use its parent as the walk start and pass it as the explicit local file.
+    // Otherwise treat the path as a directory.
+    let (start_dir, explicit_local_file): (&Path, Option<&Path>) = if start_path.is_file() {
+        (
+            start_path.parent().unwrap_or(Path::new(".")),
+            Some(start_path),
+        )
     } else if start_path.is_dir() {
-        start_path
+        (start_path, None)
     } else {
         // Path doesn't exist yet, try to use it as a directory
-        start_path
+        (start_path, None)
     };
 
-    let result = walk_config_chain(start_dir)?;
+    let result = walk_config_chain(start_dir, explicit_local_file)?;
 
     let local_config = result
         .local_config
