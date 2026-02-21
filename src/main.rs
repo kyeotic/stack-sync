@@ -25,6 +25,9 @@ enum Cli {
         /// Show detailed stack information
         #[arg(short = 'V', long)]
         verbose: bool,
+        /// Pull new images and force-recreate containers after syncing
+        #[arg(long, short = 'r')]
+        redeploy: bool,
     },
     /// Show the state of a stack in Portainer
     View {
@@ -78,20 +81,6 @@ enum Cli {
         #[arg(long)]
         force: bool,
     },
-    /// Redeploy a stack to pull new images
-    Redeploy {
-        /// Stack name to redeploy (must exist in config)
-        stack: String,
-        /// Path to the config file
-        #[arg(short = 'C', long, default_value = ".")]
-        config: String,
-        /// Preview what would happen without making changes
-        #[arg(long)]
-        dry_run: bool,
-        /// Show detailed stack information
-        #[arg(short = 'V', long)]
-        verbose: bool,
-    },
     /// Upgrade to the latest version
     Upgrade,
     /// Print version information
@@ -107,7 +96,8 @@ fn main() -> Result<()> {
             config,
             dry_run,
             verbose,
-        } => commands::sync_command(&config, &stacks, dry_run, verbose)?,
+            redeploy,
+        } => commands::sync_command(&config, &stacks, dry_run, verbose, redeploy)?,
         Cli::View {
             stacks,
             config,
@@ -139,12 +129,6 @@ fn main() -> Result<()> {
             parent_dir.as_deref(),
             force,
         )?,
-        Cli::Redeploy {
-            stack,
-            config,
-            dry_run,
-            verbose,
-        } => commands::redeploy_command(&config, &stack, dry_run, verbose)?,
         Cli::Upgrade => update::upgrade()?,
         Cli::Version => println!("stack-sync {}", env!("CARGO_PKG_VERSION")),
     }

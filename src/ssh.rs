@@ -111,6 +111,7 @@ impl SshClient {
         name: &str,
         compose_content: &str,
         env_content: Option<&str>,
+        pull: bool,
     ) -> Result<()> {
         let dir = self.stack_dir(name);
 
@@ -127,8 +128,14 @@ impl SshClient {
             self.write_remote_file(&env_path, env)?;
         }
 
-        // docker compose up -d
-        self.run_ssh(&format!("cd {} && docker compose up -d", dir))?;
+        if pull {
+            self.run_ssh(&format!(
+                "cd {} && docker compose pull && docker compose up -d --force-recreate",
+                dir
+            ))?;
+        } else {
+            self.run_ssh(&format!("cd {} && docker compose up -d", dir))?;
+        }
 
         Ok(())
     }
@@ -203,15 +210,6 @@ impl SshClient {
         } else {
             Ok(Some(content))
         }
-    }
-
-    pub fn redeploy_stack(&self, name: &str) -> Result<()> {
-        let dir = self.stack_dir(name);
-        self.run_ssh(&format!(
-            "cd {} && docker compose pull && docker compose up -d --force-recreate",
-            dir
-        ))?;
-        Ok(())
     }
 
     pub fn docker_compose_ps(&self, name: &str) -> Result<String> {
