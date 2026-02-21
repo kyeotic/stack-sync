@@ -36,7 +36,7 @@ impl SshClient {
         args
     }
 
-    fn stack_dir(&self, name: &str) -> String {
+    pub fn stack_dir(&self, name: &str) -> String {
         format!("{}/{}", self.host_dir, name)
     }
 

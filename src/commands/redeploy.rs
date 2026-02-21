@@ -143,7 +143,10 @@ fn redeploy_ssh(
 
     Reporter::redeploying(&config.name);
     client.redeploy_stack(&config.name)?;
-    Reporter::redeployed(&config.name, &ssh_config.host);
+    Reporter::redeployed(
+        &config.name,
+        format!("{}:{}", ssh_config.host, client.stack_dir(&config.name)),
+    );
 
     Ok(())
 }
