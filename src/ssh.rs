@@ -130,7 +130,7 @@ impl SshClient {
 
         if pull {
             self.run_ssh(&format!(
-                "cd {} && docker compose pull && docker compose up -d --force-recreate",
+                "cd {} && docker compose pull && docker compose up -d",
                 dir
             ))?;
         } else {

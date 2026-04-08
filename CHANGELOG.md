@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.1] - 2026-04-08
+
+### Fixed
+- SSH redeploy no longer causes port conflict; replaced `--force-recreate` with `docker compose pull && docker compose up -d` so Docker only recreates containers whose image changed
+
 ## [0.4.0] - 2026-02-20
 
 ### Removed
