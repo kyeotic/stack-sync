@@ -142,6 +142,19 @@ stack-sync sync -C /path/to/config.toml    # use a different config file
 
 The config path defaults to the current directory, where it will automatically look for `.stack-sync.toml` first, then `stack-sync.toml`. File paths in the config (`compose_file`, `env_file`) are resolved relative to the config file's directory, not the working directory.
 
+### diff
+
+Show what `sync` would change without touching the remote. Prints a git-style unified diff of the local compose file against the deployed one, and lists env vars that were added, removed (`+`/`-`), or changed (`~`) — by name only, so secret values are never printed.
+
+```bash
+stack-sync diff                            # diff all stacks
+stack-sync diff my-stack                   # diff one stack
+stack-sync diff my-stack other-stack       # diff specific stacks
+stack-sync diff -C /path/to/config.toml    # use a different config file
+```
+
+Stacks that don't exist on the remote are reported as `Would Create`, and unchanged stacks as `Up-to-Date`.
+
 ### view
 
 Show the current state of stacks on the remote.

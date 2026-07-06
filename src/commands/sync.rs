@@ -38,7 +38,12 @@ pub fn sync_command(
     Ok(())
 }
 
-fn sync_portainer_dry_run(config: &Config, client: &PortainerClient, verbose: bool, redeploy: bool) -> Result<()> {
+fn sync_portainer_dry_run(
+    config: &Config,
+    client: &PortainerClient,
+    verbose: bool,
+    redeploy: bool,
+) -> Result<()> {
     if !config.enabled {
         match client.find_stack_by_name(&config.name)? {
             Some(existing) if existing.status == 1 => {
@@ -301,11 +306,21 @@ fn sync_ssh(
 
         if compose_changed || env_changed {
             Reporter::updating(&config.name);
-            client.deploy_stack(&config.name, &compose_content, env_content.as_deref(), redeploy)?;
+            client.deploy_stack(
+                &config.name,
+                &compose_content,
+                env_content.as_deref(),
+                redeploy,
+            )?;
             Reporter::updated(&config.name, &ssh_config.host);
         } else if !running {
             Reporter::starting(&config.name);
-            client.deploy_stack(&config.name, &compose_content, env_content.as_deref(), redeploy)?;
+            client.deploy_stack(
+                &config.name,
+                &compose_content,
+                env_content.as_deref(),
+                redeploy,
+            )?;
             Reporter::started(&config.name, &ssh_config.host);
         } else if redeploy {
             Reporter::redeploying(&config.name);
@@ -316,7 +331,12 @@ fn sync_ssh(
         }
     } else {
         Reporter::creating(&config.name);
-        client.deploy_stack(&config.name, &compose_content, env_content.as_deref(), redeploy)?;
+        client.deploy_stack(
+            &config.name,
+            &compose_content,
+            env_content.as_deref(),
+            redeploy,
+        )?;
         Reporter::created(&config.name, &ssh_config.host);
     }
 

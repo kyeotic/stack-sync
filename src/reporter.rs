@@ -3,6 +3,13 @@ use std::fmt::Display;
 
 use crate::styles::{AnsiPadding, AppStyles};
 
+#[derive(Debug, PartialEq)]
+pub enum EnvChange {
+    Added(String),
+    Removed(String),
+    Changed(String),
+}
+
 pub struct Reporter;
 
 impl Reporter {
@@ -105,6 +112,16 @@ impl Reporter {
             "Redeployed".updated().align_right(Self::ACTION_LABEL_WIDTH),
             Self::bold(name),
             format!("(id: {})", id).dimmed()
+        );
+    }
+
+    pub fn changed(name: &str) {
+        println!(
+            " {} {}",
+            "Changed"
+                .would_update()
+                .align_right(Self::ACTION_LABEL_WIDTH),
+            Self::bold(name)
         );
     }
 
@@ -301,6 +318,36 @@ impl Reporter {
         }
     }
 
+    pub fn diff_details(compose_diff: &[String], env_changes: &[EnvChange]) {
+        for line in compose_diff {
+            let styled = match line.chars().next() {
+                Some('+') => line.style_if_supported(Style::new().green()),
+                Some('-') => line.style_if_supported(Style::new().red()),
+                Some('@') => line.style_if_supported(Style::new().cyan()),
+                _ => line.clone(),
+            };
+            println!("    {}", styled);
+        }
+
+        if !env_changes.is_empty() {
+            println!("    {}", "env changes (values hidden):".field_label());
+            for change in env_changes {
+                let styled = match change {
+                    EnvChange::Added(n) => {
+                        format!("+ {}", n).style_if_supported(Style::new().green())
+                    }
+                    EnvChange::Removed(n) => {
+                        format!("- {}", n).style_if_supported(Style::new().red())
+                    }
+                    EnvChange::Changed(n) => {
+                        format!("~ {}", n).style_if_supported(Style::new().yellow())
+                    }
+                };
+                println!("    {}", styled);
+            }
+        }
+    }
+
     pub fn ssh_view_details(host: &str, host_dir: &str, ps_output: Option<&str>) {
         let w = Self::FIELD_LABEL_WIDTH;
         println!("{:w$}{}:       SSH", "", "Mode".field_label());
@@ -317,7 +364,7 @@ impl Reporter {
 
 #[cfg(test)]
 mod tests {
-    use super::Reporter;
+    use super::{EnvChange, Reporter};
 
     #[test]
     fn style_gallery() {
@@ -339,6 +386,20 @@ mod tests {
         Reporter::started("my-stack", 42);
         Reporter::disabled("my-stack");
         Reporter::not_found("my-stack");
+        Reporter::changed("my-stack");
+        Reporter::diff_details(
+            &[
+                "@@ -1,3 +1,3 @@".to_string(),
+                " services:".to_string(),
+                "-  image: nginx:1.27".to_string(),
+                "+  image: nginx:1.28".to_string(),
+            ],
+            &[
+                EnvChange::Added("NEW_VAR".to_string()),
+                EnvChange::Removed("OLD_VAR".to_string()),
+                EnvChange::Changed("API_KEY".to_string()),
+            ],
+        );
         Reporter::stack_details(
             "https://portainer.example.com",
             "docker-compose.yml",

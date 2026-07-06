@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.2] - 2026-07-05
+
+### Added
+- `diff` command: shows a git-style unified diff of compose files against the remote, and env var changes by name only (values are never shown)
+
 ## [0.4.1] - 2026-04-08
 
 ### Fixed

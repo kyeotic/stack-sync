@@ -29,6 +29,14 @@ enum Cli {
         #[arg(long, short = 'r')]
         redeploy: bool,
     },
+    /// Show differences between local files and deployed stacks
+    Diff {
+        /// Stack names to diff (default: all stacks)
+        stacks: Vec<String>,
+        /// Path to the config file
+        #[arg(short = 'C', long, default_value = ".")]
+        config: String,
+    },
     /// Show the state of a stack in Portainer
     View {
         /// Stack names to show (default: all stacks)
@@ -98,6 +106,7 @@ fn main() -> Result<()> {
             verbose,
             redeploy,
         } => commands::sync_command(&config, &stacks, dry_run, verbose, redeploy)?,
+        Cli::Diff { stacks, config } => commands::diff_command(&config, &stacks)?,
         Cli::View {
             stacks,
             config,
