@@ -87,11 +87,18 @@ impl SshClient {
         Ok(output.status.success())
     }
 
+    /// A stack only counts as running when every service defined in the
+    /// compose file has a running container. Checking for "any container"
+    /// lets a stack that lost a service (crash + prune, manual rm) report
+    /// healthy forever, since sync skips `up -d` for unchanged files.
     pub fn stack_is_running(&self, name: &str) -> Result<bool> {
         let dir = self.stack_dir(name);
         let mut args = self.ssh_args();
         args.push(self.destination());
-        args.push(format!("cd {} && docker compose ps -q 2>/dev/null", dir));
+        args.push(format!(
+            "cd {} && docker compose config --services 2>/dev/null && echo __SEP__ && docker compose ps --services --status running 2>/dev/null",
+            dir
+        ));
 
         let output = Command::new("ssh")
             .args(&args)
@@ -103,7 +110,12 @@ impl SshClient {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(!stdout.trim().is_empty())
+        let Some((defined, running)) = stdout.split_once("__SEP__") else {
+            return Ok(false);
+        };
+        let defined: Vec<&str> = defined.split_whitespace().collect();
+        let running: Vec<&str> = running.split_whitespace().collect();
+        Ok(!defined.is_empty() && defined.iter().all(|s| running.contains(s)))
     }
 
     pub fn deploy_stack(

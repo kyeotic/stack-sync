@@ -4,13 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [0.4.3] - 2026-07-05
+## [0.5.0] - 2026-07-08
+### Changed
+- `sync` now restores missing containers
 
+## [0.4.3] - 2026-07-05
 ### Updated
 - `diff` command: Highlight changed values
 
 ## [0.4.2] - 2026-07-05
-
 ### Added
 - `diff` command: shows a git-style unified diff of compose files against the remote, and env var changes by name only (values are never shown)
 
