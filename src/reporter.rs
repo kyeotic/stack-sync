@@ -1,6 +1,7 @@
 use owo_colors::{OwoColorize, Style};
 use std::fmt::Display;
 
+use crate::compose::ProjectContainer;
 use crate::styles::{AnsiPadding, AppStyles};
 
 #[derive(Debug, PartialEq)]
@@ -438,6 +439,23 @@ impl Reporter {
         }
     }
 
+    /// List containers a deploy would remove as orphans. Prints nothing when
+    /// there are none.
+    pub fn orphans(orphans: &[ProjectContainer]) {
+        if orphans.is_empty() {
+            return;
+        }
+        println!("    {}", "containers to remove:".field_label());
+        for c in orphans {
+            let kind = if c.oneoff { "one-off" } else { "service" };
+            println!(
+                "    {} {}",
+                format!("- {}", c.name).style_if_supported(Style::new().red()),
+                format!("({}: {}, {})", kind, c.service, c.state).dimmed()
+            );
+        }
+    }
+
     /// Render one diff line, optionally emphasizing the changed segment
     /// (byte range into `content`) with reverse video.
     fn styled_diff_line(
@@ -474,6 +492,7 @@ impl Reporter {
 #[cfg(test)]
 mod tests {
     use super::{DiffLine, EnvChange, Reporter, changed_segments, pair_diff_lines};
+    use crate::compose::ProjectContainer;
 
     #[test]
     fn test_changed_segments_uncomment() {
@@ -581,6 +600,20 @@ mod tests {
                 EnvChange::Changed("API_KEY".to_string()),
             ],
         );
+        Reporter::orphans(&[
+            ProjectContainer {
+                name: "my-stack-old-1".to_string(),
+                service: "old".to_string(),
+                state: "running".to_string(),
+                oneoff: false,
+            },
+            ProjectContainer {
+                name: "my-stack-web-run-1a2b".to_string(),
+                service: "web".to_string(),
+                state: "exited".to_string(),
+                oneoff: true,
+            },
+        ]);
         Reporter::stack_details(
             "https://portainer.example.com",
             "docker-compose.yml",

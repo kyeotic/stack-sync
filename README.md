@@ -132,6 +132,8 @@ Configs can also be merged: if the parent directory config contains an `endpoint
 
 Create or update stacks using the local compose files and env vars.
 
+Services removed from a compose file have their containers removed on the next sync (`docker compose up --remove-orphans` in SSH mode, `prune` in Portainer mode). Named volumes and bind-mounted data are kept. `--dry-run` lists the containers that would be removed.
+
 ```bash
 stack-sync sync                            # sync all stacks
 stack-sync sync my-stack                   # sync one stack
@@ -144,7 +146,7 @@ The config path defaults to the current directory, where it will automatically l
 
 ### diff
 
-Show what `sync` would change without touching the remote. Prints a git-style unified diff of the local compose file against the deployed one, and lists env vars that were added, removed (`+`/`-`), or changed (`~`) — by name only, so secret values are never printed.
+Show what `sync` would change without touching the remote. Prints a git-style unified diff of the local compose file against the deployed one, and lists env vars that were added, removed (`+`/`-`), or changed (`~`) — by name only, so secret values are never printed. It also lists running or stopped containers that `sync` would remove because their service is no longer in the compose file.
 
 ```bash
 stack-sync diff                            # diff all stacks

@@ -16,6 +16,7 @@ flate2 = "1"
 tar = "0.4"
 owo-colors = { version = "4.2.3", features = ["supports-colors"] }
 console = "0.16.2"
+yaml-rust2 = "0.13.0"
 
 [profile.release]
 strip = true

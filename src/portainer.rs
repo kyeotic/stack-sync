@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::HashMap;
 
+use crate::compose::{self, ProjectContainer};
 use crate::config::EnvVar;
 
 fn deserialize_null_as_default<'de, D, T>(deserializer: D) -> std::result::Result<T, D::Error>
@@ -36,6 +38,33 @@ pub struct Stack {
 #[serde(rename_all = "PascalCase")]
 pub struct StackFileResponse {
     pub stack_file_content: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct DockerContainer {
+    #[serde(default, deserialize_with = "deserialize_null_as_default")]
+    pub names: Vec<String>,
+    #[serde(default)]
+    pub state: String,
+    #[serde(default, deserialize_with = "deserialize_null_as_default")]
+    pub labels: HashMap<String, String>,
+}
+
+impl From<DockerContainer> for ProjectContainer {
+    fn from(c: DockerContainer) -> Self {
+        let label = |key: &str| c.labels.get(key).cloned().unwrap_or_default();
+        Self {
+            name: c
+                .names
+                .first()
+                .map(|n| n.trim_start_matches('/').to_string())
+                .unwrap_or_default(),
+            service: label("com.docker.compose.service"),
+            oneoff: label("com.docker.compose.oneoff") == "True",
+            state: c.state,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -149,6 +178,39 @@ mod tests {
         assert_eq!(json["prune"], false);
         assert_eq!(json["pullImage"], true);
         assert!(json.get("env").is_none());
+    }
+
+    #[test]
+    fn test_docker_container_to_project_container() {
+        let json = r#"[{
+            "Id": "abc123",
+            "Names": ["/media-old-1"],
+            "State": "running",
+            "Labels": {
+                "com.docker.compose.project": "media",
+                "com.docker.compose.service": "old",
+                "com.docker.compose.oneoff": "False"
+            }
+        }, {
+            "Names": null,
+            "State": "exited",
+            "Labels": null
+        }]"#;
+        let containers: Vec<DockerContainer> = serde_json::from_str(json).unwrap();
+        let containers: Vec<ProjectContainer> =
+            containers.into_iter().map(ProjectContainer::from).collect();
+        assert_eq!(
+            containers[0],
+            ProjectContainer {
+                name: "media-old-1".to_string(),
+                service: "old".to_string(),
+                state: "running".to_string(),
+                oneoff: false,
+            }
+        );
+        assert_eq!(containers[1].name, "");
+        assert_eq!(containers[1].service, "");
+        assert!(!containers[1].oneoff);
     }
 
     #[test]
@@ -309,5 +371,46 @@ impl PortainerClient {
             .read_json()
             .context("Failed to parse stop stack response")?;
         Ok(stack)
+    }
+
+    /// All containers (any state) on the endpoint labeled as belonging to the
+    /// compose project, via Portainer's Docker API proxy.
+    pub fn list_project_containers(
+        &self,
+        endpoint_id: u64,
+        project: &str,
+    ) -> Result<Vec<ProjectContainer>> {
+        let path = format!("/endpoints/{}/docker/containers/json", endpoint_id);
+        let filters = serde_json::json!({
+            "label": [format!("com.docker.compose.project={}", project)]
+        });
+        let containers: Vec<DockerContainer> = self
+            .get(&path)
+            .query("all", "true")
+            .query("filters", filters.to_string())
+            .call()
+            .map_err(|e| api_error("GET", &path, e))?
+            .body_mut()
+            .read_json()
+            .context("Failed to parse containers response")?;
+        Ok(containers.into_iter().map(ProjectContainer::from).collect())
+    }
+
+    /// Containers that deploying `compose_content` would remove as orphans.
+    /// Portainer deploys with the stack name as the project name, so a `name:`
+    /// key in the compose file doesn't apply. Empty when the compose file's
+    /// full service list can't be known locally.
+    pub fn find_orphans(
+        &self,
+        endpoint_id: u64,
+        stack_name: &str,
+        compose_content: &str,
+    ) -> Result<Vec<ProjectContainer>> {
+        let Some(services) = compose::defined_services(compose_content)? else {
+            return Ok(vec![]);
+        };
+        let project = compose::normalize_project_name(stack_name);
+        let containers = self.list_project_containers(endpoint_id, &project)?;
+        Ok(compose::find_orphans(containers, &services))
     }
 }

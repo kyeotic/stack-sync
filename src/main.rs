@@ -2,6 +2,7 @@ use anyhow::{Ok, Result};
 use clap::Parser;
 
 mod commands;
+mod compose;
 mod config;
 mod portainer;
 mod reporter;

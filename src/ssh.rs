@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use std::process::Command;
 
+use crate::compose::{self, ProjectContainer};
 use crate::config::SshGlobalConfig;
 
 pub struct SshClient {
@@ -142,11 +143,14 @@ impl SshClient {
 
         if pull {
             self.run_ssh(&format!(
-                "cd {} && docker compose pull && docker compose up -d",
+                "cd {} && docker compose pull && docker compose up -d --remove-orphans",
                 dir
             ))?;
         } else {
-            self.run_ssh(&format!("cd {} && docker compose up -d", dir))?;
+            self.run_ssh(&format!(
+                "cd {} && docker compose up -d --remove-orphans",
+                dir
+            ))?;
         }
 
         Ok(())
@@ -229,9 +233,52 @@ impl SshClient {
         self.run_ssh(&format!("cd {} && docker compose ps", dir))
     }
 
+    /// All containers (any state) labeled as belonging to the compose project.
+    /// Labels are used rather than `docker compose ps` so containers from
+    /// services missing from the remote compose file are still found.
+    pub fn list_project_containers(&self, project: &str) -> Result<Vec<ProjectContainer>> {
+        let output = self.run_ssh(&format!(
+            "docker ps -a --filter label=com.docker.compose.project={} --format '{}'",
+            project, PS_FORMAT
+        ))?;
+        Ok(parse_ps_output(&output))
+    }
+
+    /// Containers that deploying `compose_content` would remove as orphans.
+    /// Empty when the compose file's full service list can't be known locally.
+    pub fn find_orphans(&self, name: &str, compose_content: &str) -> Result<Vec<ProjectContainer>> {
+        let Some(services) = compose::defined_services(compose_content)? else {
+            return Ok(vec![]);
+        };
+        let project = compose::project_name(name, compose_content)?;
+        let containers = self.list_project_containers(&project)?;
+        Ok(compose::find_orphans(containers, &services))
+    }
+
     pub fn host(&self) -> &str {
         &self.host
     }
+}
+
+const PS_FORMAT: &str = r#"{{.Names}}\t{{.State}}\t{{.Label "com.docker.compose.service"}}\t{{.Label "com.docker.compose.oneoff"}}"#;
+
+fn parse_ps_output(output: &str) -> Vec<ProjectContainer> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let mut fields = line.split('\t');
+            let name = fields.next()?.trim();
+            if name.is_empty() {
+                return None;
+            }
+            Some(ProjectContainer {
+                name: name.to_string(),
+                state: fields.next().unwrap_or_default().trim().to_string(),
+                service: fields.next().unwrap_or_default().trim().to_string(),
+                oneoff: fields.next().unwrap_or_default().trim() == "True",
+            })
+        })
+        .collect()
 }
 
 fn shellexpand_tilde(path: &str) -> String {
@@ -301,6 +348,34 @@ mod tests {
     fn test_env_file_path() {
         let client = SshClient::new(&test_config(None, None));
         assert_eq!(client.env_file_path("my-app"), "/mnt/docker/my-app/.env");
+    }
+
+    #[test]
+    fn test_parse_ps_output() {
+        let output = "media-sonarr-1\trunning\tsonarr\tFalse\nmedia-old-1\texited\told\tFalse\nmedia-sonarr-run-abc\texited\tsonarr\tTrue\n\n";
+        assert_eq!(
+            parse_ps_output(output),
+            vec![
+                ProjectContainer {
+                    name: "media-sonarr-1".to_string(),
+                    service: "sonarr".to_string(),
+                    state: "running".to_string(),
+                    oneoff: false,
+                },
+                ProjectContainer {
+                    name: "media-old-1".to_string(),
+                    service: "old".to_string(),
+                    state: "exited".to_string(),
+                    oneoff: false,
+                },
+                ProjectContainer {
+                    name: "media-sonarr-run-abc".to_string(),
+                    service: "sonarr".to_string(),
+                    state: "exited".to_string(),
+                    oneoff: true,
+                },
+            ]
+        );
     }
 
     #[test]

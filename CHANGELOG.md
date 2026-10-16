@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.0] - 2026-10-16
+### Added
+- `sync --dry-run` and `diff` list the containers a sync would remove (`containers to remove:`), with each container's service and state
+
+### Changed
+- `sync` now removes containers for services that are no longer in the compose file. SSH mode runs `docker compose up -d --remove-orphans`; Portainer mode sends `prune: true` on stack updates (Portainer remembers this setting on the stack, so redeploys from the Portainer UI will also prune)
+- `sync` also updates a stack whose compose file is unchanged when leftover containers from removed services are still present, so stacks orphaned before this release are cleaned up by a normal sync
+- Only containers are removed; named volumes and bind-mounted data are kept. Any other container on the host using the stack's name as its compose project name (e.g. a same-named directory elsewhere, or `docker compose -p <stack>`) will also be treated as an orphan; check `sync --dry-run` or `diff` first if that's possible on your host
+- Orphan detection is skipped for compose files that use `include:`, since the full service list can't be known locally
+
 ## [0.5.0] - 2026-07-08
 ### Changed
 - `sync` now restores missing containers

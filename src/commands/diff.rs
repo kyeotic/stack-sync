@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 
+use crate::compose::ProjectContainer;
 use crate::config::{self, Config, EnvVar, ResolvedGlobalConfig, resolve_stacks};
 use crate::portainer::{self, PortainerClient};
 use crate::reporter::{EnvChange, Reporter};
@@ -38,12 +39,14 @@ fn diff_portainer(config: &Config, client: &PortainerClient) -> Result<()> {
     match client.find_stack_by_name(&config.name)? {
         Some(existing) => {
             let remote_compose = client.get_stack_file(existing.id)?;
+            let orphans = client.find_orphans(config.endpoint_id, &config.name, &local_compose)?;
             report_diff(
                 &config.name,
                 &remote_compose,
                 &local_compose,
                 &existing.env,
                 &local_env,
+                &orphans,
             );
         }
         None => {
@@ -65,8 +68,12 @@ fn diff_ssh(config: &Config, client: &SshClient) -> Result<()> {
         None => vec![],
     };
 
+    // Checked for new stacks too: containers from another source sharing the
+    // project name would be removed by the first deploy
+    let orphans = client.find_orphans(&config.name, &local_compose)?;
     if !client.stack_exists(&config.name)? {
         Reporter::would_create(&config.name);
+        Reporter::orphans(&orphans);
         return Ok(());
     }
 
@@ -81,6 +88,7 @@ fn diff_ssh(config: &Config, client: &SshClient) -> Result<()> {
         &local_compose,
         &remote_env,
         &local_env,
+        &orphans,
     );
 
     Ok(())
@@ -92,17 +100,19 @@ fn report_diff(
     local_compose: &str,
     remote_env: &[EnvVar],
     local_env: &[EnvVar],
+    orphans: &[ProjectContainer],
 ) {
     let compose_diff = unified_diff(remote_compose.trim_end(), local_compose.trim_end(), 3);
     let env_changes = diff_env(remote_env, local_env);
 
-    if compose_diff.is_empty() && env_changes.is_empty() {
+    if compose_diff.is_empty() && env_changes.is_empty() && orphans.is_empty() {
         Reporter::up_to_date(name);
         return;
     }
 
     Reporter::changed(name);
     Reporter::diff_details(&compose_diff, &env_changes);
+    Reporter::orphans(orphans);
 }
 
 /// Compare env vars by name; values are never included in the output.

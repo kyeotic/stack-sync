@@ -72,15 +72,20 @@ fn sync_portainer_dry_run(
     match client.find_stack_by_name(&config.name)? {
         Some(existing) => {
             let remote_compose = client.get_stack_file(existing.id)?;
+            let orphans =
+                client.find_orphans(config.endpoint_id, &config.name, &compose_content)?;
             if remote_compose.trim_end() == compose_content.trim_end() && existing.env == env_vars {
                 if redeploy {
                     Reporter::would_redeploy(&config.name);
+                } else if !orphans.is_empty() {
+                    Reporter::would_update(&config.name, existing.id);
                 } else {
                     Reporter::up_to_date(&config.name);
                 }
             } else {
                 Reporter::would_update(&config.name, existing.id);
             }
+            Reporter::orphans(&orphans);
         }
         None => {
             Reporter::would_create(&config.name);
@@ -145,7 +150,7 @@ fn sync_portainer(config: &Config, client: &PortainerClient, redeploy: bool) -> 
                     config.endpoint_id,
                     &compose_content,
                     env_vars,
-                    false,
+                    true,
                     true,
                 )?;
                 Reporter::updated(&stack.name, stack.id);
@@ -160,10 +165,25 @@ fn sync_portainer(config: &Config, client: &PortainerClient, redeploy: bool) -> 
                     config.endpoint_id,
                     &compose_content,
                     env_vars,
-                    false,
+                    true,
                     true,
                 )?;
                 Reporter::redeployed(&stack.name, stack.id);
+            } else if !client
+                .find_orphans(config.endpoint_id, &config.name, &compose_content)?
+                .is_empty()
+            {
+                // Unchanged file, but containers from removed services linger
+                Reporter::updating(&config.name);
+                let stack = client.update_stack(
+                    existing.id,
+                    config.endpoint_id,
+                    &compose_content,
+                    env_vars,
+                    true,
+                    true,
+                )?;
+                Reporter::updated(&stack.name, stack.id);
             } else {
                 Reporter::up_to_date(&config.name);
             }
@@ -218,6 +238,9 @@ fn sync_ssh_dry_run(
         None => None,
     };
 
+    // Checked for new stacks too: containers from another source sharing the
+    // project name would be removed by the first deploy
+    let orphans = client.find_orphans(&config.name, &compose_content)?;
     let exists = client.stack_exists(&config.name)?;
     if exists {
         let remote_compose = client.get_compose_content(&config.name)?;
@@ -234,6 +257,8 @@ fn sync_ssh_dry_run(
                 Reporter::would_update(&config.name, client.host());
             } else if redeploy {
                 Reporter::would_redeploy(&config.name);
+            } else if !orphans.is_empty() {
+                Reporter::would_update(&config.name, client.host());
             } else {
                 Reporter::up_to_date(&config.name);
             }
@@ -241,6 +266,7 @@ fn sync_ssh_dry_run(
     } else {
         Reporter::would_create(&config.name);
     }
+    Reporter::orphans(&orphans);
 
     if verbose {
         let env_info = config.env_path().map(|p| {
@@ -326,6 +352,19 @@ fn sync_ssh(
             Reporter::redeploying(&config.name);
             client.deploy_stack(&config.name, &compose_content, env_content.as_deref(), true)?;
             Reporter::redeployed(&config.name, &ssh_config.host);
+        } else if !client
+            .find_orphans(&config.name, &compose_content)?
+            .is_empty()
+        {
+            // Unchanged file, but containers from removed services linger
+            Reporter::updating(&config.name);
+            client.deploy_stack(
+                &config.name,
+                &compose_content,
+                env_content.as_deref(),
+                false,
+            )?;
+            Reporter::updated(&config.name, &ssh_config.host);
         } else {
             Reporter::up_to_date(&config.name);
         }
